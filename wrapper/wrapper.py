@@ -1,5 +1,5 @@
 import functools
-class NestWrapper:
+class Wrapper:
     def __init__(self, func, isMethode=False, disable=False):
         self._isMethode = isMethode
         self._disabled = disable

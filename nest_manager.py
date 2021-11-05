@@ -8,6 +8,5 @@ class NestManager():
         suffix = ".".join(module_name.split(".")[1:])
         self.jit.__dict__[suffix] = ModuleWrapper(f"jit.{suffix}", module_name)
     
-    
     def get_wrapper(self):
         return self.jit
