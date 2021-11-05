@@ -5,7 +5,6 @@ class ModelQuery():
         self.nestml = config.get_nestml_path()
         self.libs = config.get_module_lib_path()
         self.neuron = neuron_name
-        
 
     def find_model_in_nestml(self):
         path_to_nestml = get_neuron_nestml_path(self.neuron, self.nestml)
@@ -26,8 +25,7 @@ class ModelQuery():
             return handle
         return handle
 
-
-####################################################################################
+###################################################################################
 # Helps functions for retrieving  neuron location
 
 def get_neurons_name(path_to_nestml):
@@ -45,7 +43,6 @@ def get_neurons_name(path_to_nestml):
 
         found_models = [combine_mutli_whitespaces.sub(" ", m) for m in found_models]
         found_models = [m.split()[1] for m in found_models]
-
         return found_models
     
 def get_neuron_nestml_path(neuron_name, nestmls_path):
@@ -53,7 +50,4 @@ def get_neuron_nestml_path(neuron_name, nestmls_path):
         found = get_neurons_name(path)
         if neuron_name in found:
             return path
-    
     return None
-
-        

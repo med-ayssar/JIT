@@ -1,7 +1,7 @@
 import sys
 from importlib import import_module
 from inspect import getmembers, isfunction, ismethod, ismodule
-from wrapper.nest_wrapper import NestWrapper
+from wrapper.wrapper import Wrapper
 from wrapper.wrappers import to_wrap
 
 class ModuleWrapper():
@@ -13,7 +13,6 @@ class ModuleWrapper():
             self.__dict__[module_to_add] = import_module(module_to_add)
         except:
             exit(sys.exc_info())
-        
         added_module = self.__dict__[module_to_add]
 
         nest_functions = getmembers(added_module, isfunction)
@@ -36,12 +35,11 @@ class ModuleWrapper():
             if func_name in to_wrap:
                 func_wrapper = to_wrap[func_name](item[1], isMethod).wrapped_func
             else:
-                func_wrapper = NestWrapper(item[1], isMethod).wrapped_func
+                func_wrapper = Wrapper(item[1], isMethod).wrapped_func
             #func_wrapper =  NestWrapper(item[1], isMethod).wrapped_nest_func
             self.__dict__[item[0]] = func_wrapper
             #setattr(self, item[0], wrapped_nest_func)
-
-    
+            #  
     def __getattr__(self, k):
         module_to_add = self.__dict__["wrapped_module_name"]
         suffix = ".".join(module_to_add.split(".")[1:])
@@ -60,5 +58,3 @@ class ModuleWrapper():
         module_to_add = self.__dict__["wrapped_module_name"]
         added_module = self.__dict__[module_to_add]
         setattr(added_module, k, v)
-
-        

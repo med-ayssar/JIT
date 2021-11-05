@@ -21,8 +21,9 @@ old_import = copy.deepcopy(builtins.__import__)
 def custom_import(name,*args, **kwargs):
     if "nest." in name:
         nest_manager.add_module(name)
-        suffix = ".".join(name.split(".")[1:])
-        return nest.__dict__[suffix]
+        #suffix = ".".join(name.split(".")[1:])
+        #return nest.__dict__[suffix]
+        return nest
     else:
         return old_import(name, *args, **kwargs)
 

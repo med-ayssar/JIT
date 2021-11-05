@@ -28,12 +28,4 @@ class Wrapper:
                 else:
                     res = func(*args, **kwargs)
                     return self.after(res)
-        return call_func
-
-
-
-            
-
-
-        
-        
+        return call_func     
