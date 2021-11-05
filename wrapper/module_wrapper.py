@@ -4,14 +4,15 @@ from inspect import getmembers, isfunction, ismethod, ismodule
 from wrapper.wrapper import Wrapper
 from wrapper.wrappers import to_wrap
 
-class ModuleWrapper():
+
+class ModuleWrapper:
     def __init__(self, parent, module_to_add):
 
         self.__dict__["module"] = parent
         self.__dict__["wrapped_module_name"] = module_to_add
         try:
             self.__dict__[module_to_add] = import_module(module_to_add)
-        except:
+        except ModuleNotFoundError:
             exit(sys.exc_info())
         added_module = self.__dict__[module_to_add]
 
@@ -36,15 +37,14 @@ class ModuleWrapper():
                 func_wrapper = to_wrap[func_name](item[1], isMethod).wrapped_func
             else:
                 func_wrapper = Wrapper(item[1], isMethod).wrapped_func
-            #func_wrapper =  NestWrapper(item[1], isMethod).wrapped_nest_func
+            # func_wrapper =  NestWrapper(item[1], isMethod).wrapped_nest_func
             self.__dict__[item[0]] = func_wrapper
-            #setattr(self, item[0], wrapped_nest_func)
-            #  
+
     def __getattr__(self, k):
         module_to_add = self.__dict__["wrapped_module_name"]
         suffix = ".".join(module_to_add.split(".")[1:])
         if k == suffix:
-            return self 
+            return self
         if k in self.__dict__:
             return self.__dict__[k]
         else:
@@ -53,7 +53,7 @@ class ModuleWrapper():
                 return getattr(added_module, k)
             except KeyError:
                 raise AttributeError(k)
-        
+
     def __setattr__(self, k, v):
         module_to_add = self.__dict__["wrapped_module_name"]
         added_module = self.__dict__[module_to_add]

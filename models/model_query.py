@@ -1,5 +1,7 @@
 from utils.nest_config import NestConfig
 import os
+
+
 class ModelQuery():
     def __init__(self, neuron_name, config):
         self.nestml = config.get_nestml_path()
@@ -27,6 +29,8 @@ class ModelQuery():
 
 ###################################################################################
 # Helps functions for retrieving  neuron location
+###################################################################################
+
 
 def get_neurons_name(path_to_nestml):
     if not os.path.isfile(path_to_nestml):
@@ -44,7 +48,8 @@ def get_neurons_name(path_to_nestml):
         found_models = [combine_mutli_whitespaces.sub(" ", m) for m in found_models]
         found_models = [m.split()[1] for m in found_models]
         return found_models
-    
+
+
 def get_neuron_nestml_path(neuron_name, nestmls_path):
     for path in nestmls_path:
         found = get_neurons_name(path)

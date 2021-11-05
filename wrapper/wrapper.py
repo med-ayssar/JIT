@@ -1,10 +1,11 @@
 import functools
+
+
 class Wrapper:
     def __init__(self, func, isMethode=False, disable=False):
         self._isMethode = isMethode
         self._disabled = disable
         setattr(self, "wrapped_func", self.__wrapper(func))
-
 
     def before(self, *args, **kwargs):
         return args, kwargs
@@ -28,4 +29,4 @@ class Wrapper:
                 else:
                     res = func(*args, **kwargs)
                     return self.after(res)
-        return call_func     
+        return call_func

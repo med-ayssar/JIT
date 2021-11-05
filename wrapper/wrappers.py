@@ -1,8 +1,9 @@
 from wrapper.wrapper import Wrapper
 from inspect import getmembers, isclass
 
+
 class CreateWrapper(Wrapper):
-    def __init__(self, *args,**kwargs):
+    def __init__(self, *args, **kwargs):
         # prepare attribute to set paths
         super().__init__(*args, **kwargs)
 
@@ -18,8 +19,9 @@ class CreateWrapper(Wrapper):
     def get_name():
         return "nest.Create"
 
+
 class ConnectWrapper(Wrapper):
-    def __init__(self, *args,**kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def before(self, *args, **kwargs):
@@ -32,8 +34,9 @@ class ConnectWrapper(Wrapper):
     def get_name():
         return "nest.Connect"
 
+
 class SimulateWrapper(Wrapper):
-    def __init__(self, *args,**kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def before(self, *args, **kwargs):
@@ -46,8 +49,9 @@ class SimulateWrapper(Wrapper):
     def get_name():
         return "nest.Simulate"
 
+
 class DisableNestFunc(Wrapper):
-    def __init__(self, *args,**kwargs):
+    def __init__(self, *args, **kwargs):
         args = args + (True,)
         super().__init__(*args, **kwargs)
 
@@ -60,15 +64,17 @@ class DisableNestFunc(Wrapper):
     def wrapps_one():
         return False
 
+
 def install_wrappers():
     sub_classes = Wrapper.__subclasses__()
     to_wrap = {}
     for sub_clz in sub_classes:
         if sub_clz.wrapps_one():
-            to_wrap[sub_clz.get_name()]= sub_clz
+            to_wrap[sub_clz.get_name()] = sub_clz
         else:
             for name in sub_clz.get_name():
-                to_wrap[name]= sub_clz
+                to_wrap[name] = sub_clz
     return to_wrap
+
 
 to_wrap = install_wrappers()

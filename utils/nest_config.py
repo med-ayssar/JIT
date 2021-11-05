@@ -1,5 +1,6 @@
 import os
 
+
 class NestConfig():
     default_install = None
     target_path = None
@@ -15,14 +16,14 @@ class NestConfig():
         NestConfig.target_path = os.path.join(os.getcwd(), "build")
         NestConfig.nestml_path = [os.path.join(os.getcwd(), "nestml")]
         NestConfig.libs_path = [nest_install_prefix]
-    
+
     @staticmethod
     def add_module_lib_path(path):
         NestConfig.libs_path.append(path)
 
     @staticmethod
     def add_nestml_path(path):
-       NestConfig.nestml_path.append(path)
+        NestConfig.nestml_path.append(path)
 
     @staticmethod
     def get_module_lib_path():
