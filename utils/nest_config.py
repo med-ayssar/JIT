@@ -2,20 +2,20 @@ import os
 
 
 class NestConfig():
-    default_install = None
-    target_path = None
+    nest_prefix = None
+    build_path = None
     nestml_path = None
     libs_path = None
 
     @staticmethod
     def reset(nest_install_prefix):
         if nest_install_prefix is None:
-            raise TypeError("nest_install_prefix mustn\'t be a None")
-        else:
-            NestConfig.default_install = nest_install_prefix
-        NestConfig.target_path = os.path.join(os.getcwd(), "build")
+            raise TypeError("nest_install_prefix can\'t be a None")
+        
+        NestConfig.nest_prefix = nest_install_prefix
+        NestConfig.build_path = os.path.join(os.getcwd(), "build")
         NestConfig.nestml_path = [os.path.join(os.getcwd(), "nestml")]
-        NestConfig.libs_path = [nest_install_prefix]
+        NestConfig.libs_path = [os.path.join(nest_install_prefix, "lib", "nest")]
 
     @staticmethod
     def add_module_lib_path(path):
@@ -34,5 +34,5 @@ class NestConfig():
         return NestConfig.nestml_path
 
     @staticmethod
-    def set_target_path(self, path):
-        NestConfig.target_path = path
+    def set_build_path(self, path):
+        NestConfig.build_path = path

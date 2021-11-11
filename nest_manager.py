@@ -1,4 +1,4 @@
-from wrapper.module_wrapper import ModuleWrapper
+from jit.wrapper.module_wrapper import ModuleWrapper
 
 
 class NestManager():

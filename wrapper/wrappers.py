@@ -1,15 +1,21 @@
-from wrapper.wrapper import Wrapper
-from inspect import getmembers, isclass
-
+from jit.wrapper.wrapper import Wrapper
+from jit.models.model_query import ModelQuery
+import os
 
 class CreateWrapper(Wrapper):
-    def __init__(self, *args, **kwargs):
-        # prepare attribute to set paths
-        super().__init__(*args, **kwargs)
+
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, isMethode, disable)
+        self.property = {"Install": original_module.Install}
 
     def before(self, *args, **kwargs):
-        print("Running the before function for nest.Create")
-        return super().before(*args, **kwargs)
+        neuron_name = args[0]
+        model_query = ModelQuery(neuron_name)
+        model_query.get_model_handle().install()
+        print(os.environ["LD_LIBRARY_PATH"])
+        self.property["Install"](neuron_name)
+       
+        return args, kwargs
 
     def after(self, *args):
         print("Running the after function for nest.Create")
