@@ -2,6 +2,7 @@ from jit.wrapper.wrapper import Wrapper
 from jit.models.model_query import ModelQuery
 import os
 
+
 class CreateWrapper(Wrapper):
 
     def __init__(self, func, original_module, isMethode=False, disable=False):
@@ -12,9 +13,8 @@ class CreateWrapper(Wrapper):
         neuron_name = args[0]
         model_query = ModelQuery(neuron_name)
         model_query.get_model_handle().install()
-        print(os.environ["LD_LIBRARY_PATH"])
-        self.property["Install"](neuron_name)
-       
+        module_name = f"{neuron_name}module"
+        self.property["Install"](module_name)
         return args, kwargs
 
     def after(self, *args):

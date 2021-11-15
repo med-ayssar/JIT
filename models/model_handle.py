@@ -33,7 +33,7 @@ class ModelHandle():
     def _build(self):
         # pre-condition of install_nest function
         if not os.path.exists(self.build):
-             os.makedirs(self.build)
+            os.makedirs(self.build)
         install_nest(self.target, config.nest_prefix, self.build)
 
     def install(self):

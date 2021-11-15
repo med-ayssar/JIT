@@ -14,18 +14,20 @@ class ModelQuery():
         path_to_nestml = get_neuron_nestml_path(
             self.neuron, self.nestml_folders)
         if path_to_nestml is not None:
-            return  ModelHandle(self.neuron, path_to_nestml, False)
+            return ModelHandle(self.neuron, path_to_nestml, False)
         return None
 
     def find_model_in_lib(self):
         paths = NestConfig.get_module_lib_path()
+        build_path = os.path.join(NestConfig.build_path, self.neuron, "lib", "nest")
+        paths.append(build_path)
         for p in paths:
             for file in os.listdir(p):
                 if file.endswith(".so"):
                     lib = os.path.join(p, file)
                     neurons = get_neurons_in_lib(lib)
                     if self.neuron in neurons:
-                        return ModelHandle(self.neuron, lib, True)
+                        return ModelHandle(self.neuron, p, True)
         return None
 
     def get_model_handle(self):
@@ -78,12 +80,12 @@ def get_neurons_in_lib(lib_path):
     import subprocess
     proc1 = subprocess.Popen(
         ['nm', '--demangle', lib_path], stdout=subprocess.PIPE)
-    proc2 = subprocess.Popen(['grep', '-o', 'nest::[a-z,_]*::Parameters_'],
+    proc2 = subprocess.Popen(['grep', '-o', '[a-z,_][a-z,_]*::Parameters_'],
                              stdin=proc1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc2.communicate()
     if len(err) == 0 and len(out) > 0:
         neurons_name = out.decode("ascii").split("\n")
-        neurons_name = [x.split("::")[1] for x in neurons_name if len(x) > 1]
+        neurons_name = [x.split("::")[0] for x in neurons_name if len(x) > 1]
         return set(neurons_name)
     else:
         return []
