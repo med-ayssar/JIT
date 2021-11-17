@@ -5,12 +5,14 @@ from pynestml.frontend.pynestml_frontend import to_nest, install_nest
 
 
 class ModelHandle():
-    def __init__(self, name, model_path, is_lib=False):
+    def __init__(self, name, model_path, is_lib=False, code=None):
         self.neuron = name
+        self.module_name = f"{self.neuron}module"
         self.path = model_path
         self.is_lib = is_lib
         self.target = os.path.join(os.getcwd(), "generated", self.neuron)
         self.build = os.path.join(os.getcwd(), "build", self.neuron)
+        self.code = code
 
     def _add_model(self, path):
         system = platform.system()
@@ -26,9 +28,8 @@ class ModelHandle():
             os.environ[lib_key] = path
 
     def _generate_code(self):
-        module_name = f"{self.neuron}module"
         to_nest(input_path=self.path, target_path=self.target,
-                module_name=module_name)
+                module_name=self.module_name)
 
     def _build(self):
         # pre-condition of install_nest function
@@ -44,3 +45,9 @@ class ModelHandle():
             self._build()
             lib_path = os.path.join(self.build, "lib", "nest")
             self._add_model(lib_path)
+
+    def get_nest_instance(self):
+        pass
+
+    def get_neuron(self):
+        return ["todo"]

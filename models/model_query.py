@@ -11,23 +11,25 @@ class ModelQuery():
         self.neuron = neuron_name
 
     def find_model_in_nestml(self):
-        path_to_nestml = get_neuron_nestml_path(
+        path, code = get_neuron(
             self.neuron, self.nestml_folders)
-        if path_to_nestml is not None:
-            return ModelHandle(self.neuron, path_to_nestml, False)
+        if path is not None:
+            return ModelHandle(self.neuron, path, False, code)
         return None
 
     def find_model_in_lib(self):
         paths = NestConfig.get_module_lib_path()
-        build_path = os.path.join(NestConfig.build_path, self.neuron, "lib", "nest")
+        build_path = os.path.join(
+            NestConfig.build_path, self.neuron, "lib", "nest")
         paths.append(build_path)
         for p in paths:
-            for file in os.listdir(p):
-                if file.endswith(".so"):
-                    lib = os.path.join(p, file)
-                    neurons = get_neurons_in_lib(lib)
-                    if self.neuron in neurons:
-                        return ModelHandle(self.neuron, p, True)
+            if os.path.isdir(p):
+                for file in os.listdir(p):
+                    if file.endswith(".so"):
+                        lib = os.path.join(p, file)
+                        neurons = get_neurons_in_lib(lib)
+                        if self.neuron in neurons:
+                            return ModelHandle(self.neuron, p, True)
         return None
 
     def get_model_handle(self):
@@ -45,34 +47,53 @@ class ModelQuery():
 ###################################################################################
 
 
-def get_neurons_name(path_to_nestml):
+def get_neurons_code(path_to_nestml):
     if not os.path.isfile(path_to_nestml):
         raise FileNotFoundError(f"{path_to_nestml} doesn\'t exist")
     else:
         import re
-        models = ""
+        lines = []
         with open(path_to_nestml, 'r') as nestml:
-            models = nestml.read()
+            lines = nestml.readlines()
 
+        # extract neurons name in the nestml file
         pattern = r'neuron\s+\w+:'
-        found_models = re.findall(pattern, models)
+        expression = re.compile(pattern)
+        found_models = list(filter(expression.match, lines))
+        models_location = [lines.index(x) for x in found_models]
+        neurons = {}
         combine_mutli_whitespaces = re.compile(r"\s+")
+        for i in range(len(found_models)):
+            if i != len(found_models) - 1:
+                start = models_location[i]
+                end = models_location[i+1]
+            else:
+                start = models_location[i]
+                end = len(lines)
 
-        found_models = [combine_mutli_whitespaces.sub(
-            " ", m) for m in found_models]
-        found_models = [m.split()[1].replace(":", "") for m in found_models]
-        return found_models
+            name = combine_mutli_whitespaces.sub(" ", found_models[i]).split()[
+                1].replace(":", "")
+            code = "".join(lines[start:end]).strip()
+            neurons[name] = code
+
+        #found_models = re.findall(pattern, models)
+
+        #found_models = [combine_mutli_whitespaces.sub(" ", m) for m in found_models]
+        #found_models = [m.split()[1].replace(":", "") for m in found_models]
+        # extract the nestml code for the model
+
+        return neurons
 
 
 @logger.catch
-def get_neuron_nestml_path(neuron_name, nestmls_path):
+def get_neuron(neuron_name, nestmls_path):
     for path in nestmls_path:
         for file in os.listdir(path):
             nestml_file = os.path.join(path, file)
-            found = get_neurons_name(nestml_file)
+            found = get_neurons_code(nestml_file)
             if neuron_name in found:
-                return path
-    return None
+                return (path, found[neuron_name])
+    return (None, None)
 
 
 @logger.catch
