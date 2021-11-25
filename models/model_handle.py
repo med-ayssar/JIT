@@ -11,10 +11,13 @@ class ModelHandle():
         self.path = model_path
         self.is_lib = is_lib
         self.target = os.path.join(os.getcwd(), "generated", self.neuron)
-        self.build = os.path.join(os.getcwd(), "build", self.neuron)
+        self.build_path = os.path.join(os.getcwd(), "build", self.neuron)
         self.code = code
+        self.lib_path = os.path.join(self.build_path, "lib", "nest")
+        self.params = {}
+        self.isValid = False
 
-    def _add_model(self, path):
+    def add_module_to_path(self):
         system = platform.system()
         lib_key = ""
         if system == "Linux":
@@ -23,9 +26,9 @@ class ModelHandle():
             lib_key = "DYLD_LIBRARY_PATH"
 
         if lib_key in os.environ:
-            os.environ[lib_key] += os.pathsep + path
+            os.environ[lib_key] += os.pathsep + self.lib_path
         else:
-            os.environ[lib_key] = path
+            os.environ[lib_key] = self.lib_path
 
     def _generate_code(self):
         to_nest(input_path=self.path, target_path=self.target,
@@ -33,21 +36,20 @@ class ModelHandle():
 
     def _build(self):
         # pre-condition of install_nest function
-        if not os.path.exists(self.build):
-            os.makedirs(self.build)
-        install_nest(self.target, config.nest_prefix, self.build)
+        if not os.path.exists(self.build_path):
+            os.makedirs(self.build_path)
+        install_nest(self.target, config.nest_prefix, self.build_path)
 
-    def install(self):
-        if self.is_lib:
-            self._add_model(self.path)
-        else:
+    def build(self):
+        if not self.is_lib:
             self._generate_code()
             self._build()
-            lib_path = os.path.join(self.build, "lib", "nest")
-            self._add_model(lib_path)
 
     def get_nest_instance(self):
         pass
 
     def get_neuron(self):
-        return ["todo"]
+        return ["todo: implement proxy"]
+
+    def add_params(self, funcName, args):
+        self.params[funcName] = args

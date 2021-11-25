@@ -4,7 +4,8 @@ from jit.models.model_query import ModelQuery
 import os
 import asyncio
 from jit.models.model_manager import ModelManager
-from threading import Thread
+from threading import Thread, current_thread
+from jit.utils.thread_manager import JitThread
 
 
 class CreateWrapper(Wrapper):
@@ -21,25 +22,27 @@ class CreateWrapper(Wrapper):
         self.modelHandle = model_query.get_model_handle()
         self.property["args"] = args
         self.property["kwargs"] = kwargs
-        createThread = Thread(target=self.__create_model, daemon=False)
+        createThread = JitThread(self.__create_model, ModelManager.Modules)
         ModelManager.Threads.append(createThread)
+        module_name = f"{self.neuron_name}module"
+        ModelManager.add_module_to_install(module_name, self.modelHandle)
+
         # start thread
         createThread.start()
         return args, kwargs
 
-    def __create_model(self):
-        self.modelHandle.install()
-        module_name = f"{self.neuron_name}module"
-        # self.property["Install"](module_name)
-        # nest_create_return = self.func(
-        #    *self.property["args"], **self.property["kwargs"])
-        # ModelManager.populate(self.neuron_name, nest_create_return)
+    def __create_model(self, sharedDict):
+        self.modelHandle.build()
         params = {"args": self.property["args"],
                   "kwargs": self.property["kwargs"], "name": self.neuron_name}
-        ModelManager.add_module_to_install(module_name, params)
+        self.modelHandle.add_params("Create", params)
+        self.modelHandle.isValid = True
+        module_name = f"{self.neuron_name}module"
+        ModelManager.add_module_to_install(module_name, self.modelHandle)
 
     def after(self, *args):
-        return self.modelHandle.get_neuron()
+        ModelManager.add_model(self.neuron_name, self.modelHandle.get_neuron())
+        return ModelManager.to_populate[self.neuron_name]
 
     def main_func(self, *args, **kwargs):
         # ignore the real nest function
@@ -75,14 +78,23 @@ class SimulateWrapper(Wrapper):
         for thread in ModelManager.Threads:
             thread.join()
 
-        for module, params in ModelManager.Modules.items():
+        current_dict = ModelManager.Modules.get()
+        for module, handle in current_dict.items():
+            handle.add_module_to_path()
+            create_args = handle.params["Create"]["args"]
+            create_kwargs = handle.params["Create"]["kwargs"]
             self.property["Install"](module)
             nest_create_return = self.property["Create"](
-                *params["args"], **params["kwargs"])
-            ModelManager.populate(params["name"], nest_create_return)
+                *create_args, **create_kwargs)
+            ModelManager.populate(
+                handle.params["Create"]["name"], nest_create_return)
 
-        ModelManager.Modules.clear()
+        ModelManager.Modules.close()
 
+        return args, kwargs
+
+    def main_func(self, *args, **kwargs):
+        # ignore the real nest function
         return args, kwargs
 
     def after(self, *args):

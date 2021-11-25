@@ -1,31 +1,31 @@
 from jit.utils.nest_config import NestConfig
-import asyncio
-import threading
+from multiprocessing import Manager, Queue
+import sys
 
 
 class ModelManager():
     to_populate = {}
-    populated = {}
-    Event_loop = asyncio.get_event_loop()
-    Lock = threading.Lock()
     Threads = []
-    Modules = {}
+    Modules = Queue()
+    Modules.put({})
 
     @staticmethod
     def add_model(model_name, handle):
-        with ModelManager.Lock:
-            if hasattr(handle, "is_lib") and handle.is_lib:
-                ModelManager.populated[model_name] = handle.get_nest_instance()
+        if hasattr(handle, "is_lib") and handle.is_lib:
+            ModelManager.populated[model_name] = handle.get_nest_instance()
 
         ModelManager.to_populate[model_name] = handle
 
     @staticmethod
     def populate(name, nodeCollectionInstance):
-        with ModelManager.Lock:
-            ModelManager.populated[name] = nodeCollectionInstance
-            ModelManager.to_populate.pop(name, None)
+        ModelManager.to_populate[name][0] = nodeCollectionInstance
 
     @staticmethod
-    def add_module_to_install(name, params):
-        with ModelManager.Lock:
-            ModelManager.Modules[name] = params
+    def add_module_to_install(name, handle):
+        try:
+            current_dict = ModelManager.Modules.get()
+            current_dict[name] = handle
+            ModelManager.Modules.put(current_dict)
+        except Exception as exp:
+            print(exp)
+            sys.exit()
