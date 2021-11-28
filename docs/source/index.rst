@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to JIT's documentation!
-===============================
+Welcome to JIT's documentationgg!
+=================================
 NESTML processing is completely automated, and as the first step in this project the manual
 steps that are presently needed to integrate NESTML and NEST will be eliminated. In this
 context, “Just-in-time” refers to the building of the extension module only at the point where it is
