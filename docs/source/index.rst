@@ -16,7 +16,7 @@ connecting synapse models cannot be generated separately, but have to be generat
 because they have strong dependencies on each other.
 
 Coming Soon!
-==========
+============
 
 
 .. toctree::
