@@ -15,6 +15,9 @@ Some further constraints may apply. For example, in some cases neurons and their
 connecting synapse models cannot be generated separately, but have to be generated in pairs,
 because they have strong dependencies on each other.
 
+Coming Soon!
+==========
+
 
 .. toctree::
    :maxdepth: 2
