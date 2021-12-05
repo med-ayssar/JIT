@@ -46,12 +46,16 @@ class CreateWrapper(Wrapper):
         ModelManager.add_module_to_install(module_name, self.modelHandle)
 
     def after(self, *args):
-        ModelManager.add_model(self.neuron_name, self.modelHandle.get_neuron())
-        return ModelManager.to_populate[self.neuron_name]
+        if not self.modelHandle.is_lib:
+            ModelManager.add_model(self.neuron_name, self.modelHandle.get_neuron())
+            return ModelManager.to_populate[self.neuron_name]
+        return args[0]
 
     def main_func(self, *args, **kwargs):
         # ignore the real nest function
-        return args, kwargs
+        if self.modelHandle.is_lib:
+            return self.func(*args, **kwargs)
+        return
 
     @staticmethod
     def get_name():

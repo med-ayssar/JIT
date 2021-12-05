@@ -10,6 +10,7 @@ class ModelManager():
     ThreadsState = _Manager.dict()
     Modules = Queue()
     Modules.put({})
+    NodeCollections = []
 
     @staticmethod
     def add_model(model_name, handle):

@@ -32,10 +32,9 @@ class ModelQuery():
                         if self.neuron in neurons:
                             expectedModuleName = f"{self.neuron}module.so"
                             if expectedModuleName != libName:
-                                # TODO create an exception class for module name conflicts
-                                raise Exception(
-                                    f"the the model {self.neuron} was found in {libName}, but it should be in {expectedModuleName}")
-
+                                handle = ModelHandle(self.neuron, p, True)
+                                handle.module_name = libName
+                                return handle
                             return ModelHandle(self.neuron, p, True)
         return None
 
