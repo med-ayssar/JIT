@@ -2,6 +2,7 @@ import os
 from jit.models.model_handle import ModelHandle
 from jit.utils.nest_config import NestConfig
 from loguru import logger
+import warnings
 
 
 class ModelQuery():
@@ -24,11 +25,17 @@ class ModelQuery():
         paths.append(build_path)
         for p in paths:
             if os.path.isdir(p):
-                for file in os.listdir(p):
-                    if file.endswith(".so"):
-                        lib = os.path.join(p, file)
+                for libName in os.listdir(p):
+                    if libName.endswith(".so"):
+                        lib = os.path.join(p, libName)
                         neurons = get_neurons_in_lib(lib)
                         if self.neuron in neurons:
+                            expectedModuleName = f"{self.neuron}module.so"
+                            if expectedModuleName != libName:
+                                # TODO create an exception class for module name conflicts
+                                raise Exception(
+                                    f"the the model {self.neuron} was found in {libName}, but it should be in {expectedModuleName}")
+
                             return ModelHandle(self.neuron, p, True)
         return None
 
@@ -92,7 +99,7 @@ def get_neuron(neuron_name, nestmls_path):
             nestml_file = os.path.join(path, file)
             found = get_neurons_code(nestml_file)
             if neuron_name in found:
-                return (path, found[neuron_name])
+                return (nestml_file, found[neuron_name])
     return (None, None)
 
 

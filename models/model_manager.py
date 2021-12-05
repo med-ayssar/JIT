@@ -5,7 +5,9 @@ import sys
 
 class ModelManager():
     to_populate = {}
+    _Manager = Manager()
     Threads = []
+    ThreadsState = _Manager.dict()
     Modules = Queue()
     Modules.put({})
 
