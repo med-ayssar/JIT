@@ -1,5 +1,5 @@
 from jit import nest_manager as manager
-from utils.nest_config import NestConfig
+from jit.utils.nest_config import NestConfig
 import builtins
 import copy
 

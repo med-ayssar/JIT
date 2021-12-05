@@ -1,8 +1,7 @@
 import sys
 from importlib import import_module
 from inspect import getmembers, isfunction, ismethod, ismodule
-from wrapper.wrapper import Wrapper
-from wrapper.wrappers import to_wrap
+from jit.wrapper.wrappers import to_wrap
 
 
 class ModuleWrapper:
@@ -34,10 +33,10 @@ class ModuleWrapper:
             prefix = self.__dict__["wrapped_module_name"]
             func_name = f"{prefix}.{item[0]}"
             if func_name in to_wrap:
-                func_wrapper = to_wrap[func_name](item[1], isMethod).wrapped_func
+                func_wrapper = to_wrap[func_name](
+                    item[1], self.get_original(), isMethod).wrapped_func
             else:
-                func_wrapper = Wrapper(item[1], isMethod).wrapped_func
-            # func_wrapper =  NestWrapper(item[1], isMethod).wrapped_nest_func
+                func_wrapper = item[1]
             self.__dict__[item[0]] = func_wrapper
 
     def __getattr__(self, k):
@@ -58,3 +57,8 @@ class ModuleWrapper:
         module_to_add = self.__dict__["wrapped_module_name"]
         added_module = self.__dict__[module_to_add]
         setattr(added_module, k, v)
+
+    def get_original(self):
+        module = self.__dict__["wrapped_module_name"]
+        added_module = self.__dict__[module]
+        return added_module

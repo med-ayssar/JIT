@@ -2,17 +2,21 @@ import functools
 
 
 class Wrapper:
-    def __init__(self, func, isMethode=False, disable=False):
-        self._isMethode = isMethode
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        self._isMethod = isMethode
         self._disabled = disable
         setattr(self, "wrapped_func", self.__wrapper(func))
+        self.func = func
 
     def before(self, *args, **kwargs):
         return args, kwargs
 
     def after(self, *res):
-        if not self._isMethode:
+        if not self._isMethod:
             return res[0]
+
+    def main_func(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
 
     @staticmethod
     def wrapps_one():
@@ -23,10 +27,10 @@ class Wrapper:
         def call_func(*args, **kwargs):
             if not self._disabled:
                 args, kwargs = self.before(*args, **kwargs)
-                if self._isMethode:
-                    func(*args, **kwargs)
+                if self._isMethod:
+                    self.main_func(*args, **kwargs)
                     self.after()
                 else:
-                    res = func(*args, **kwargs)
+                    res = self.main_func(*args, **kwargs)
                     return self.after(res)
         return call_func
