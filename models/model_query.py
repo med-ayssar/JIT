@@ -33,7 +33,7 @@ class ModelQuery():
                             expectedModuleName = f"{self.neuron}module.so"
                             if expectedModuleName != libName:
                                 handle = ModelHandle(self.neuron, p, True)
-                                handle.module_name = libName
+                                handle.moduleName = libName[:-3]
                                 return handle
                             return ModelHandle(self.neuron, p, True)
         return None
@@ -107,7 +107,7 @@ def get_neurons_in_lib(lib_path):
     import subprocess
     proc1 = subprocess.Popen(
         ['nm', '--demangle', lib_path], stdout=subprocess.PIPE)
-    proc2 = subprocess.Popen(['grep', '-o', '[a-z,_][a-z,_]*::Parameters_'],
+    proc2 = subprocess.Popen(['grep', '-o', '[A-Za-z,_][A-Za-z,_]*::Parameters_'],
                              stdin=proc1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc2.communicate()
     if len(err) == 0 and len(out) > 0:

@@ -10,52 +10,84 @@ from jit.utils.create_report import CreateReport
 from string import Template
 import sys
 from loguru import logger
+from jit.models.node_collection_proxy import NodeCollectionProxy
+from jit.models.jit_model import JitModel, JitNodeCollection
+from jit.models.model_handle import ModelHandle
 
 
 class CreateWrapper(Wrapper):
 
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, isMethode, disable)
-        self.property = {"Install": original_module.Install}
-        self.func = func
+        self.nest = original_module
         self.modelHandle = None
+        self.nodeCollectionProxy = None
+        self.builtIn = False
 
     def before(self, *args, **kwargs):
-        self.neuron_name = args[0]
-        model_query = ModelQuery(self.neuron_name)
-        self.modelHandle = model_query.get_model_handle()
-        module_name = f"{self.neuron_name}module"
-        self.property["args"] = args
-        self.property["kwargs"] = kwargs
+        self.neuronName = args[0]
+        self.modelCount = next(iter(args[1:2]), 0)
+        self.__setup()
+
+        if self.neuronName in self.nest.Models():
+            self.nodeCollectionProxy.setAsNodeCollection()
+            self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
+            self.__handleBuiltIn()
+            return args, kwargs
+
         if not self.modelHandle.is_lib:
-            createThread = JitThread(self.neuron_name, self.__create_model, ModelManager.Modules)
-            ModelManager.Threads.append(createThread)
-            ModelManager.add_module_to_install(module_name, self.modelHandle)
-            # start thread
-            createThread.start()
+            self.__handleNestml(*args, **kwargs)
         else:
+            self.nodeCollectionProxy.setAsNodeCollection()
+            self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
             self.__create_model(ModelManager.Modules)
         return args, kwargs
 
+    def __setup(self):
+        model_query = ModelQuery(self.neuronName)
+
+        self.modelHandle = model_query.get_model_handle()
+        self.moduleName = self.modelHandle.moduleName
+
+        self.nodeCollectionProxy = NodeCollectionProxy(self.neuronName, self.moduleName)
+        ModelManager.NodeCollectionProxys[self.moduleName] = self.nodeCollectionProxy
+
+    def __handleNestml(self, *args, **kwargs):
+        modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
+        jitModel = JitModel(name=self.neuronName, number=self.modelCount, variables=modelDeclatedVars)
+        jitModel.addNestModule(self.nest)
+        ModelManager.JitModels[self.neuronName] = jitModel
+
+        self.nodeCollectionProxy.addJitNodeCollection(JitNodeCollection(name=self.neuronName, last=self.modelCount))
+        self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
+        ModelManager.add_module_to_install(self.moduleName, self.modelHandle)
+
+        createThread = JitThread(self.neuronName, self.__create_model, ModelManager.Modules)
+        ModelManager.Threads.append(createThread)
+
+        # start thread
+        createThread.start()
+
+    def __handleBuiltIn(self):
+        self.modelHandle = ModelHandle(self.neuronName, "", True)
+        ModelManager.NodeCollectionProxys[self.neuronName] = self.nodeCollectionProxy
+        ModelManager.add_module_to_install(self.neuronName, self.modelHandle)
+
+        self.builtIn = True
+
     def __create_model(self, sharedDict):
         self.modelHandle.build()
-        params = {"args": self.property["args"], "kwargs": self.property["kwargs"], "name": self.neuron_name}
-        self.modelHandle.add_params("Create", params)
         self.modelHandle.isValid = True
-        module_name = f"{self.neuron_name}module"
+        module_name = f"{self.neuronName}module"
         ModelManager.add_module_to_install(module_name, self.modelHandle)
 
     def after(self, *args):
-        if not self.modelHandle.is_lib:
-            ModelManager.add_model(self.neuron_name, self.modelHandle.get_neuron())
-            return ModelManager.to_populate[self.neuron_name]
-        return args[0]
+        if self.builtIn or self.modelHandle.is_lib:
+            self.nodeCollectionProxy.toNodeCollection()
+        return self.nodeCollectionProxy
 
     def main_func(self, *args, **kwargs):
-        # ignore the real nest function
-        if self.modelHandle.is_lib:
-            return self.func(*args, **kwargs)
-        return
+        pass
 
     @staticmethod
     def get_name():
@@ -82,6 +114,7 @@ class SimulateWrapper(Wrapper):
         super().__init__(func, original_module, isMethode, disable)
         self.property = {"Install": original_module.Install}
         self.property["Create"] = original_module.Create
+        self.property["Models"] = original_module.Models
         self.error_occured = False
         self.report = CreateReport()
         self.reportError = {}
@@ -95,11 +128,9 @@ class SimulateWrapper(Wrapper):
                 if handle.neuron not in ModelManager.ThreadsState:
                     msg = "skipped" if handle.is_lib else "ok"
                     handle.add_module_to_path()
-                    create_args = handle.params["Create"]["args"]
-                    create_kwargs = handle.params["Create"]["kwargs"]
-                    self.property["Install"](module)
-                    nest_create_return = self.property["Create"](*create_args, **create_kwargs)
-                    ModelManager.populate(handle.params["Create"]["name"], nest_create_return)
+
+                    if handle.neuron not in self.property["Models"]():
+                        ModelManager.NodeCollectionProxys[module].toNodeCollection()
                     self.report.append([handle.neuron, msg, msg, "ok", "None"])
             except Exception as exp:
                 self.report.append([handle.neuron, msg, msg, "Failed"])

@@ -1,5 +1,6 @@
 from jit import nest_manager as manager
 from jit.utils.nest_config import NestConfig
+from jit.models.model_manager import ModelManager
 import builtins
 import copy
 
@@ -8,6 +9,9 @@ nest_manager = manager.NestManager(__name__)
 
 # get the real nest wrapper
 nest = nest_manager.get_wrapper()
+
+# get the real nest module
+ModelManager.Nest = nest.get_original()
 
 # get instance of the nest install settings
 config = NestConfig

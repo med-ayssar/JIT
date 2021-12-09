@@ -3,6 +3,7 @@ from multiprocessing import Manager, Queue
 import sys
 
 
+
 class ModelManager():
     to_populate = {}
     _Manager = Manager()
@@ -10,7 +11,10 @@ class ModelManager():
     ThreadsState = _Manager.dict()
     Modules = Queue()
     Modules.put({})
-    NodeCollections = []
+    NodeCollectionProxys = {}
+    JitModels = {}
+    Nest = None
+
 
     @staticmethod
     def add_model(model_name, handle):
@@ -32,3 +36,8 @@ class ModelManager():
         except Exception as exp:
             print(exp)
             sys.exit()
+
+
+    @staticmethod
+    def addNestModule(module):
+        ModelManager.Nest = module
