@@ -2,6 +2,8 @@ import copy
 from multiprocessing.managers import Namespace
 from os import name
 from sys import modules
+
+from numpy.core.fromnumeric import var
 from jit.models.model_manager import ModelManager
 from collections import defaultdict
 import numpy as np
@@ -11,11 +13,7 @@ class JitModel:
     def __init__(self, name, number, variables, variations=None):
         self.name = name
         self.count = number
-        self.paramsAndState = {}
-        if bool(variables["State"]):
-            self.paramsAndState["State"] = variables["State"]
-        if bool(variables["Parameter"]):
-            self.paramsAndState["Parameter"] = variables["Parameter"]
+        self.default = variables
         self.varaitions = {}
         self.nest = None
         self.createParams = {}
@@ -53,47 +51,27 @@ class JitModel:
             raise Exception(
                 f"The create parameters in {self.__class__.__name__ }.nest is NoneType")
 
-    def get(self, start, end, step, *params, **kwargs):
-        getRes = {}
-        states = list(self.paramsAndState["State"].keys())
-        params = list(self.paramsAndState["Parameter"].keys())
-        allDeclerations = params
-        allDeclerations.extend(states)
-        if len(params) == 0:
-            params = allDeclerations
+    def get(self, ids, items):
+        res = {}
+        for k, v in self.default.items():
+            if k in items:
+                valuesOfK = []
+                for i in ids:
+                    if i in self.varaitions and k in self.varaitions[i]:
+                        valuesOfK.append(self.varaitions[i][k])
+                    else:
+                        valuesOfK.append(v)
+                res[k] = tuple(valuesOfK)
+        return res
 
-        for key in params:
-            res = self.getTuple(start=start, end=end, step=step, key=key)
-            getRes[key] = res
-        return getRes
+    def toString(self):
+        return f"{self.__class__.__name__}(name={self.name})"
 
-    def getTuple(self, start, end, step, key):
-        arr = []
-        for i in range(start, end, step):
-            if str(i) in self.varaitions:
-                variationForI = self.varaitions[str(i)]
-                value = self.getValue(key, variationForI)
-                if value is None:
-                    value = self.getValue(key, self.paramsAndState)
-                    if value is None:
-                        raise KeyError(f"{self.__class__.__name__}.paramsAndState doesn't contain the key {key}")
-                    arr.append(value)
-            else:
-                value = self.getValue(key, self.paramsAndState)
-                if value is None:
-                    raise KeyError(f"{self.__class__.__name__}.paramsAndState doesn't contain the key {key}")
-                arr.append(value)
-        return tuple(arr)
+    def __str__(self):
+        return self.toString()
 
-    def getValue(self, key, stateParamDict):
-        if "State" in stateParamDict:
-            if key in stateParamDict["State"]:
-                return stateParamDict["State"][key]
-
-        if "Parameter" in stateParamDict:
-            if key in stateParamDict["Parameter"]:
-                return stateParamDict["Parameter"][key]
-        return None
+    def __repr__(self):
+        return self.toString()
 
 
 class JitNode():
@@ -201,6 +179,12 @@ class JitNode():
                     last = items[i]
             res.append((first, last + 1))
         return res
+
+    def get(self, *args, **kwargs):
+        modelsToSelect = range(self.first, self.last)
+        jitModel = ModelManager.JitModels[self.name]
+        dictOfItems = jitModel.get(ids=modelsToSelect, items=args)
+        return dictOfItems
 
 
 class JitNodeCollection:
