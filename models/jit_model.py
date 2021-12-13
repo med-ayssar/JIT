@@ -1,7 +1,10 @@
 import copy
+from multiprocessing.managers import Namespace
 from os import name
 from sys import modules
 from jit.models.model_manager import ModelManager
+from collections import defaultdict
+import numpy as np
 
 
 class JitModel:
@@ -50,7 +53,7 @@ class JitModel:
             raise Exception(
                 f"The create parameters in {self.__class__.__name__ }.nest is NoneType")
 
-    def get(self, *params, **kwargs):
+    def get(self, start, end, step, *params, **kwargs):
         getRes = {}
         states = list(self.paramsAndState["State"].keys())
         params = list(self.paramsAndState["Parameter"].keys())
@@ -60,13 +63,13 @@ class JitModel:
             params = allDeclerations
 
         for key in params:
-            res = self.getTuple(key)
+            res = self.getTuple(start=start, end=end, step=step, key=key)
             getRes[key] = res
         return getRes
 
-    def getTuple(self, key):
+    def getTuple(self, start, end, step, key):
         arr = []
-        for i in range(self.count):
+        for i in range(start, end, step):
             if str(i) in self.varaitions:
                 variationForI = self.varaitions[str(i)]
                 value = self.getValue(key, variationForI)
@@ -93,31 +96,146 @@ class JitModel:
         return None
 
 
-class JitNodeCollection:
-    def __init__(self, name, first=0, last=1):
+class JitNode():
+    def __init__(self, name="None", first=0, last=0):
         self.name = name
         self.first = first
         self.last = last
-        self.step = 1
 
     def __len__(self):
         return self.last - self.first
 
-    def __iter__(self):
-        return JitNodeCollectionIterator(self)
+    def get(self, *args, **kwargs):
+        jitModel = ModelManager.JitModels[self.name]
+        return jitModel.get(start=self.first, end=self.last, step=self.step, *args, **kwargs)
+
+    def toString(self):
+        return f"model={self.name}, size={self.last - self.first}, first={self.first}"
+
+    def __str__(self):
+        return self.toString()
+
+    def __repr__(self):
+        return self.toString()
+
+    def __contains__(self, obj):
+        if isinstance(obj, int):
+            if obj < self.first and obj >= self.last:
+                return False
+            return True
+        raise NotImplemented("Todo handle other cases in JitNode.__contains__")
+
+    def __eq__(self, other):
+        if other is not None:
+            if other.name == self.name and self.first == other.first and self.last == other.last:
+                return True
+        return False
+
+    def __hash__(self):
+        return hash(self.name)
 
     def __getitem__(self, key):
         if isinstance(key, int):
-            if key < self.first and key > self.last - 1:
+            if key >= self.__len__():
                 raise IndexError("index out of range")
-            return JitNodeCollection(name=self.name, first=key, last=key + 1)
+            return self.__getNodesAt([key])
         elif isinstance(key, slice):
             if key.start is None:
                 start = 0
             else:
                 start = key.start
                 if abs(start) > self.__len__():
-                    raise IndexError('slice start value outside of the NodeCollection')
+                    raise IndexError('slice start value outside of the JitNode')
+            if key.stop is None:
+                stop = self.__len__()
+            else:
+                stop = key.stop
+                if abs(stop) > self.__len__():
+                    raise IndexError('slice stop value outside of the JitNode')
+            step = 1 if key.step is None else key.step
+            if step < 1:
+                raise IndexError('slicing step for JitNode must be strictly positive')
+            nodesRange = list(range(start, stop, step))
+            slicedElement = self.__getNodesAt(nodesRange)
+            return slicedElement
+        elif isinstance(key, (list, tuple)):
+            if len(key) == 0:
+                return JitNode()
+            # Must check if elements are bool first, because bool inherits from int
+            if all(isinstance(x, bool) for x in key):
+                if len(key) != len(self):
+                    raise IndexError('Bool index array must be the same length as JitNode')
+                npKey = np.array(key, dtype=np.bool)
+                npKey = np.argwhere(npKey == True)
+            # Checking that elements are not instances of bool too, because bool inherits from int
+            elif all(isinstance(x, int) and not isinstance(x, bool) for x in key):
+                npKey = np.array(key, dtype=np.uint64)
+                if len(np.unique(npKey)) != len(npKey):
+                    raise ValueError('All node IDs in a JitNode have to be unique')
+            else:
+                raise TypeError('Indices must be integers or bools')
+            return self.__getNodesAt(npKey)
+
+    def __getNodesAt(self, items):
+        if all(index < self.__len__() for index in items):
+            groups = self.__groupByDistance(items)
+            nodes = list()
+            for group in groups:
+                newNode = JitNode(name=self.name, first=group[0], last=group[1])
+                nodes.append(newNode)
+            return nodes
+
+    def __groupByDistance(self, items):
+        res = []
+        if len(items) == 1:
+            return [(items[0], items[0] + 1)]
+        else:
+            first = items[0]
+            last = first
+            for i in range(1, len(items)):
+                if items[i] - last == 1:
+                    last = items[i]
+                else:
+                    res.append((first, last + 1))
+                    first = items[i]
+                    last = items[i]
+            res.append((first, last + 1))
+        return res
+
+
+class JitNodeCollection:
+    def __init__(self, nodes):
+        if isinstance(nodes, (list, tuple)):
+            if len(nodes) > 0:
+                if isinstance(nodes[0], int):
+                    pass
+                elif isinstance(nodes[0], JitNode):
+                    self.nodes = nodes
+                else:
+                    raise TypeError(f"{self.__class__.__name__} accepts only list of int or JitNode")
+        elif isinstance(nodes, JitNode):
+            self.nodes = [nodes]
+        else:
+            raise TypeError(f"{self.__class__.__name__} accepts only list of int or JitNode")
+
+    def __len__(self):
+        return sum([len(node) for node in self.nodes])
+
+    def __iter__(self):
+        return JitNodeCollectionIterator(self)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            if key < 0 and key > self.__len__():
+                raise IndexError("index out of range")
+            return JitNodeCollection(self.__indexing(key))
+        elif isinstance(key, slice):
+            if key.start is None:
+                start = 0
+            else:
+                start = key.start
+                if abs(start) > self.__len__():
+                    raise IndexError('slice start value outside of the JitNodeCollection')
             if key.stop is None:
                 stop = self.__len__()
             else:
@@ -127,15 +245,72 @@ class JitNodeCollection:
             step = 1 if key.step is None else key.step
             if step < 1:
                 raise IndexError('slicing step for JitNodeCollection must be strictly positive')
-            slicedElement = JitNodeCollection(name=self.name, first=start, last=stop)
-            slicedElement.step = step
+            ranges = list(range(start, stop, step))
+            newNodes = self.__slicing(ranges)
+            slicedElement = JitNodeCollection(newNodes)
             return slicedElement
+        elif isinstance(key, (list, tuple)):
+            newNodes = newNodes = self.__slicing(key)
+            return JitNodeCollection(newNodes)
+        else:
+            raise Exception("Only list, tuple and int are accepted")
+
+    def __indexing(self, index):
+        blockStartsAt = 0
+        blockEndsAt = -1
+        for node in self.nodes:
+            blockStartsAt = blockEndsAt + 1
+            blockEndsAt = blockStartsAt + len(node) - 1
+            if index >= blockStartsAt and index <= blockEndsAt:
+                relativeIndex = index - blockStartsAt
+                return node[relativeIndex]
+        raise IndexError("list out of range")
+
+    def __slicing(self, items):
+        dictOfModelNames = {}
+        # map index to model name
+        for i in items:
+            node, relativeIndex = self.resolveModelAt(i)
+            dictOfModelNames[i] = (node, relativeIndex)
+
+        # group dict by model name
+        groups = defaultdict()
+        for key, value in sorted(dictOfModelNames.items()):
+            if value[0] in groups:
+                groups[value[0]].append(value[1])
+            else:
+                groups[value[0]] = [value[1]]
+
+        # execute each split on each node
+        nodes = list()
+        for key, value in groups.items():
+            newNodes = key[value]
+            nodes.extend(newNodes)
+        return nodes
+
+    def resolveModelAt(self, index):
+        blockStartsAt = 0
+        blockEndsAt = -1
+        for node in self.nodes:
+            blockStartsAt = blockEndsAt + 1
+            blockEndsAt = blockStartsAt + len(node) - 1
+            if index >= blockStartsAt and index <= blockEndsAt:
+                relativeIndex = index - blockStartsAt
+                return node, relativeIndex
+        raise IndexError("list out of range")
 
     def __setitem__(self, key, value):
         raise TypeError("JitNodeCollection object does not support item assignment")
 
     def toString(self):
-        return f"{self.__class__.__name__}(name={self.name}, size={self.last - self.first}, first={self.first})"
+        classNameLength = len(self.__class__.__name__) + 1
+        spaces = " " * classNameLength
+        instanceToString = f"{self.__class__.__name__}("
+        for index, node in enumerate(self.nodes):
+            newLineOrClose = ")" if index == len(self.nodes) - 1 else "\n"
+            padding = spaces if index > 0 else ""
+            instanceToString += f"{padding}{str(node)}{newLineOrClose}"
+        return instanceToString
 
     def __str__(self):
         return self.toString()
@@ -154,7 +329,7 @@ class JitNodeCollection:
 
     def get(self, *args, **kwargs):
         jitModel = ModelManager.JitModels[self.name]
-        return jitModel.get(*args, **kwargs)
+        return jitModel.get(start=self.first, end=self.last, step=self.step, *args, **kwargs)
 
 
 class JitNodeCollectionIterator:

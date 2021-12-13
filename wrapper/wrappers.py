@@ -56,7 +56,8 @@ class CreateWrapper(Wrapper):
         modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
         jitModel = JitModel(name=self.neuronName, number=self.modelCount, variables=modelDeclatedVars)
         jitModel.addNestModule(self.nest)
-        ModelManager.JitModels[self.neuronName] = jitModel
+
+        ModelManager.addJitModel(self.neuronName,self.modelCount ,jitModel)
 
         self.nodeCollectionProxy.addJitNodeCollection(JitNodeCollection(name=self.neuronName, last=self.modelCount))
         self.nodeCollectionProxy.setCreateParams(*args, **kwargs)

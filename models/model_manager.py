@@ -2,6 +2,8 @@ from jit.utils.nest_config import NestConfig
 from multiprocessing import Manager, Queue
 import sys
 
+from jit.models.model_indexer import ModelIndexer
+
 
 
 class ModelManager():
@@ -13,6 +15,8 @@ class ModelManager():
     Modules.put({})
     NodeCollectionProxys = {}
     JitModels = {}
+    ModelIndexer = {}
+    Index = 0
     Nest = None
 
 
@@ -41,3 +45,21 @@ class ModelManager():
     @staticmethod
     def addNestModule(module):
         ModelManager.Nest = module
+
+    @staticmethod
+    def addJitModel(modelName, n, jitModel):
+        ModelManager.JitModels[modelName] = jitModel
+        pair = [ModelManager.Index, ModelManager.Index + n - 1]
+        ModelManager.Index+= n
+        if modelName in ModelManager.ModelIndexer:
+            ModelManager.ModelIndexer[modelName].addRange(pair)
+        else:
+            modelIndexer = ModelIndexer(modelName)
+            modelIndexer.addRange(pair)
+            ModelManager.ModelIndexer[modelName] = modelIndexer
+
+    @staticmethod
+    def updateJitmodel(modelName, n):
+        pair = [ModelManager.Index, ModelManager.Index + n - 1]
+        ModelManager.ModelIndexer[modelName].addRange(pair)
+        ModelManager.Index+= n
