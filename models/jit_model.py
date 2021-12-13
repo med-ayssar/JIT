@@ -53,16 +53,21 @@ class JitModel:
 
     def get(self, ids, items):
         res = {}
-        for k, v in self.default.items():
-            if k in items:
-                valuesOfK = []
-                for i in ids:
-                    if i in self.varaitions and k in self.varaitions[i]:
-                        valuesOfK.append(self.varaitions[i][k])
-                    else:
-                        valuesOfK.append(v)
-                res[k] = tuple(valuesOfK)
+        keys = self.default.keys()
+        # select only valid items
+        items = list(filter(lambda x: x in keys, items))
+        for k in items:
+            valuesOfK = []
+            for i in ids:
+                if i in self.varaitions and k in self.varaitions[i]:
+                    valuesOfK.append(self.varaitions[i][k])
+                else:
+                    valuesOfK.append(self.default[k])
+            res[k] = valuesOfK
         return res
+
+    def getKeys(self):
+        return list(self.default.keys())
 
     def toString(self):
         return f"{self.__class__.__name__}(name={self.name})"
@@ -82,10 +87,6 @@ class JitNode():
 
     def __len__(self):
         return self.last - self.first
-
-    def get(self, *args, **kwargs):
-        jitModel = ModelManager.JitModels[self.name]
-        return jitModel.get(start=self.first, end=self.last, step=self.step, *args, **kwargs)
 
     def toString(self):
         return f"model={self.name}, size={self.last - self.first}, first={self.first}"
@@ -180,11 +181,15 @@ class JitNode():
             res.append((first, last + 1))
         return res
 
-    def get(self, *args, **kwargs):
+    def get(self, keys):
         modelsToSelect = range(self.first, self.last)
         jitModel = ModelManager.JitModels[self.name]
-        dictOfItems = jitModel.get(ids=modelsToSelect, items=args)
+        dictOfItems = jitModel.get(ids=modelsToSelect, items=keys)
         return dictOfItems
+
+    def getKeys(self):
+        jitModel = ModelManager.JitModels[self.name]
+        return jitModel.getKeys()
 
 
 class JitNodeCollection:
@@ -312,8 +317,35 @@ class JitNodeCollection:
         jitModel.setCreateParams(*args, **kwargs)
 
     def get(self, *args, **kwargs):
-        jitModel = ModelManager.JitModels[self.name]
-        return jitModel.get(start=self.first, end=self.last, step=self.step, *args, **kwargs)
+        # TODO implement return style using(kwargs)
+        # get all Keys from all nodes
+        allKeys = set()
+        for node in self.nodes:
+            allKeys.update(node.getKeys())
+        if len(args) == 0:
+            args = allKeys
+        
+        tuples  = [(node.get(args), len(node), node.name) for node in self.nodes]
+        toMerge = {}
+        for item in args:
+            subRes = []
+            for subDict in tuples:
+                if item in subDict[0]:
+                    subRes.extend(subDict[0][item])
+                else:
+                    notFound = [None] * subDict[1]
+                    subRes.extend(notFound)
+            toMerge[item] = subRes
+        models =  []
+        for subDict in tuples:
+            models.extend([subDict[2]] * subDict[1])
+        
+        toMerge["models"] = models
+
+        return toMerge
+
+
+        
 
 
 class JitNodeCollectionIterator:
