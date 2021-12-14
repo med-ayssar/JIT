@@ -2,8 +2,10 @@ import copy
 from multiprocessing.managers import Namespace
 from os import name
 from sys import modules
+from typing import Type
 
 from numpy.core.fromnumeric import var
+from numpy.lib.function_base import insert
 from jit.models.model_manager import ModelManager
 from collections import defaultdict
 import numpy as np
@@ -14,9 +16,9 @@ class JitModel:
         self.name = name
         self.count = number
         self.default = variables
-        self.varaitions = {}
         self.nest = None
         self.createParams = {}
+        self.attributes = {}
 
     def __len__(self):
         return self.count
@@ -59,12 +61,36 @@ class JitModel:
         for k in items:
             valuesOfK = []
             for i in ids:
-                if i in self.varaitions and k in self.varaitions[i]:
-                    valuesOfK.append(self.varaitions[i][k])
+                if k in self.attributes:
+                    attribute = self.attributes[k]
+                    if i in attribute:
+                        value = attribute.getValueOfId(i)
+                        valuesOfK.append(value)
+                    else:
+                        valuesOfK.append(self.default[k])
                 else:
                     valuesOfK.append(self.default[k])
             res[k] = valuesOfK
         return res
+
+    def set(self, ids, collection):
+        for k, v in collection.items():
+            if isinstance(v, (tuple, list)):
+                if len(v) != len(ids):
+                    raise TypeError(f"Expecting {len(ids)} values in {k}, but got {len(v)}")
+                if k in self.attributes:
+                    self.attributes[k].update(ids, v)
+                else:
+                    newAttribute = JitAtribute(attributeName=k, ids=ids, values=v)
+                    self.attributes[k] = newAttribute
+            else:
+                values = [v] * len(ids)
+                if k in self.attributes:
+                   self.attributes[k].update(ids, values)
+                else:
+                    newAttribute = JitAtribute(attributeName=k, ids=ids, values=values)
+                    self.attributes[k] = newAttribute
+            
 
     def getKeys(self):
         return list(self.default.keys())
@@ -153,7 +179,8 @@ class JitNode():
                     raise ValueError('All node IDs in a JitNode have to be unique')
             else:
                 raise TypeError('Indices must be integers or bools')
-            return self.__getNodesAt(npKey)
+            # TODO convert all int to np.uint64
+            return self.__getNodesAt(key)
 
     def __getNodesAt(self, items):
         if all(index < self.__len__() for index in items):
@@ -215,9 +242,10 @@ class JitNodeCollection:
 
     def __getitem__(self, key):
         if isinstance(key, int):
-            if key < 0 and key > self.__len__():
+            if abs(key) >= self.__len__():
                 raise IndexError("index out of range")
-            return JitNodeCollection(self.__indexing(key))
+            actualKey = key if key >= 0 else self.__len__() - abs(key)
+            return JitNodeCollection(self.__indexing(actualKey))
         elif isinstance(key, slice):
             if key.start is None:
                 start = 0
@@ -228,9 +256,12 @@ class JitNodeCollection:
             if key.stop is None:
                 stop = self.__len__()
             else:
-                stop = key.stop
-                if abs(stop) > self.__len__():
-                    raise IndexError('slice stop value outside of the JitNodeCollection')
+                if key.stop < 0 and abs(key.stop) < self.__len__():
+                    stop = self.__len__() - abs(key.stop)
+                else:
+                    stop = key.stop
+                    if abs(stop) >= self.__len__():
+                        raise IndexError("slice stop value outside of the JitNodeCollection")
             step = 1 if key.step is None else key.step
             if step < 1:
                 raise IndexError('slicing step for JitNodeCollection must be strictly positive')
@@ -324,8 +355,8 @@ class JitNodeCollection:
             allKeys.update(node.getKeys())
         if len(args) == 0:
             args = allKeys
-        
-        tuples  = [(node.get(args), len(node), node.name) for node in self.nodes]
+
+        tuples = [(node.get(args), len(node), node.name) for node in self.nodes]
         toMerge = {}
         for item in args:
             subRes = []
@@ -336,16 +367,13 @@ class JitNodeCollection:
                     notFound = [None] * subDict[1]
                     subRes.extend(notFound)
             toMerge[item] = subRes
-        models =  []
+        models = []
         for subDict in tuples:
             models.extend([subDict[2]] * subDict[1])
-        
+
         toMerge["models"] = models
 
         return toMerge
-
-
-        
 
 
 class JitNodeCollectionIterator:
@@ -363,3 +391,49 @@ class JitNodeCollectionIterator:
         nestElement = JitNodeCollection(self.jnc.name, first=self._count, last=self._count + 1)
         self._count += 1
         return nestElement
+
+
+class JitAtribute:
+    def __init__(self, attributeName, ids, values):
+        self.modelIds = ids
+        self.attributeName = attributeName
+        if len(ids) != len(values):
+            raise ValueError(f"ids:{len(ids)} != values: {len(values)}: both ids and values must be of the same size")
+        self.values = values
+
+    def __contains__(self, other):
+        if isinstance(other, str):
+            return self.attributeName == other
+        if isinstance(other, int):
+            return other in self.modelIds
+        return False
+
+    def getValueOfId(self, modeId):
+        if modeId in self:
+            index = self.modelIds.index(modeId)
+            value  = self.values[index]
+            if value.__class__.__name__ == "Parameter":
+                value = value.GetValue()
+                self.values[index] = value
+            return value
+        raise ValueError(f"the model id {modeId} is not in {str(self)}")
+
+    def toString(self):
+        return f"{self.__class__.__name__}(attribute={self.attributeName})"
+
+    def __str__(self):
+        return self.toString()
+
+    def __repr__(self):
+        return self.toString()
+
+    def append(self, ids, values):
+        if len(ids) != len(values):
+            raise ValueError(f"ids:{len(ids)} != values: {len(values)}: both ids and values must be of the same size")
+
+        for index, value in enumerate(ids):
+            if value in self:
+                self.values[index] = values[index]
+            else:
+                self.modelIds.append(value)
+                self.values.append(values[index])

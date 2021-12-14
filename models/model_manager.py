@@ -4,8 +4,6 @@ import sys
 
 from jit.models.model_indexer import ModelIndexer
 
-
-
 class ModelManager():
     to_populate = {}
     _Manager = Manager()
@@ -57,9 +55,16 @@ class ModelManager():
             modelIndexer = ModelIndexer(modelName)
             modelIndexer.addRange(pair)
             ModelManager.ModelIndexer[modelName] = modelIndexer
-
+        return pair
     @staticmethod
     def updateJitmodel(modelName, n):
         pair = [ModelManager.Index, ModelManager.Index + n - 1]
         ModelManager.ModelIndexer[modelName].addRange(pair)
         ModelManager.Index+= n
+
+    @staticmethod
+    def createJitNode(modelName):
+        pair = [ModelManager.Index, ModelManager.Index + n - 1]
+        ModelManager.ModelIndexer[modelName].addRange(pair)
+        ModelManager.Index+= n
+

@@ -87,8 +87,8 @@ class ModelHandle():
         Logger.init_logger(LoggingLevel.INFO)
         astNeuron = ModelParser.parse_neuron(self.code)
         declaredVariables = {}
-        declaredVariables["State"] = self.__extractVariables(astNeuron.get_state_blocks)
-        declaredVariables["Parameter"] = self.__extractVariables(astNeuron.get_parameter_blocks)
+        declaredVariables.update(self.__extractVariables(astNeuron.get_state_blocks))
+        declaredVariables.update(self.__extractVariables(astNeuron.get_parameter_blocks))
         return declaredVariables
        
     def __extractVariables(self, modelBlockFunc):

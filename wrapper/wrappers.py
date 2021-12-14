@@ -11,8 +11,9 @@ from string import Template
 import sys
 from loguru import logger
 from jit.models.node_collection_proxy import NodeCollectionProxy
-from jit.models.jit_model import JitModel, JitNodeCollection
+from jit.models.jit_model import JitModel, JitNodeCollection, JitNode
 from jit.models.model_handle import ModelHandle
+
 
 
 class CreateWrapper(Wrapper):
@@ -57,9 +58,10 @@ class CreateWrapper(Wrapper):
         jitModel = JitModel(name=self.neuronName, number=self.modelCount, variables=modelDeclatedVars)
         jitModel.addNestModule(self.nest)
 
-        ModelManager.addJitModel(self.neuronName,self.modelCount ,jitModel)
+        first, last = ModelManager.addJitModel(self.neuronName, self.modelCount, jitModel)
+        initialJitNode = JitNode(name=self.neuronName, first=first, last=last)
 
-        self.nodeCollectionProxy.addJitNodeCollection(JitNodeCollection(name=self.neuronName, last=self.modelCount))
+        self.nodeCollectionProxy.addJitNodeCollection(JitNodeCollection(initialJitNode))
         self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
         ModelManager.add_module_to_install(self.moduleName, self.modelHandle)
 
