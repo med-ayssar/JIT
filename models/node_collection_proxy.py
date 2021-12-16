@@ -1,80 +1,51 @@
 from jit.models.model_manager import ModelManager
-from typing import Any
-
 from jit.models.jit_model import JitNodeCollection
 
 
 class NodeCollectionProxy():
     def __init__(self, name, libName, node=None):
+        self.jitNodeCollection = None
+        self.nestNodeCollection = None
+        self.createParams = {}
 
-        properties = {
-            # holds the model name to communicate with the ModelManager
-            "name": name,
-            "libName": libName,
-            "node": node,
-            # check whether the JitModel instance contains isNodeCollectionalready a nodeCollection instance
-            "isNodeCollection": False,
-            "createParams": {}
-        }
 
-        for k, v in properties.items():
-            self.__dict__[k] = v
-
-    def setNodeCollection(self, nodeCollection):
-        self.node = nodeCollection
-        self.isNodeCollection = True
-
-    def setNodeCollectionProxy(self, proxy):
-        self.node = proxy
-
-    def setCreateParams(self, *args, **kwargs):
-        if self.isNodeCollection:
-            self.createParams["args"] = args
-            self.createParams["kwargs"] = kwargs
-        else:
-            if self.node:
-                self.node.setCreateParams(*args, **kwargs)
 
     def toNodeCollection(self):
-        if isinstance(self.node, JitNodeCollection):
-            self.__dict__["node"] = self.node.createNodeCollection(self.libName)
-            self.setAsNodeCollection()
+        if self.jitNodeCollection:
+            nodeCollection = self.node.createNodeCollection(self.libName)
+            self.nestNodeCollection+= nodeCollection
+            self.jitNodeCollection = None
         else:
-            self.__dict__["node"] = self.__create()
-            self.setAsNodeCollection()
-
-    def __create(self):
-        if bool(self.createParams):
-            args = self.createParams["args"]
-            kwargs = self.createParams["kwargs"]
-            if self.name not in ModelManager.Nest.Models():
-                ModelManager.Nest.Install(self.libName)
-            nodeCollection = ModelManager.Nest.Create(*args, **kwargs)
-            return nodeCollection
-        else:
-            raise Exception(
-                f"The create parameters in {self.__class__.__name__ } must be set before calling nest.Create function")
-
-    def setAsNodeCollection(self):
-        self.__dict__["isNodeCollection"] = True
-
-    def __getattr__(self, name):
-        if self.isNodeCollection:
-            return getattr(self.node, name)
-        return self.node[name]
-
-    def __setattr__(self, name, value):
-        if self.isNodeCollection:
-            setattr(self.node, name, value)
-        else:
-            self.node[name] = value
+            raise Exception(f"{self.__class__.__name__} has no instance of JitNodeCollection")
 
     def set(self, params=None, **kwargs):
-        if self.isNodeCollection:
-            self.node.set(params, **kwargs)
+        if kwargs and params:
+            raise TypeError("must either provide params or kwargs, but not both.")
+        elif kwargs:
+            pass
+
+        else:
+            if isinstance(params, dict):
+               pass
+            elif isinstance(params, list):
+                if len(params) == 0:
+                    return
+                types = set([type(item) for item in params])
+                if len(types) != 1 and types.pop().__class__.__name__ != "dict":
+                    raise TypeError("params can only contain a dictionary or list of dictionaries")
+                if len(params) != len(self):
+                    raise ValueError(
+                        f"params is a list of dict and has {len(params)} items, but expected are {len(self)}")
+                
 
     def get(self, *params, **kwargs):
-        return self.node.get(*params, **kwargs)
+        nodeCollectionOutput = self.nestNodeCollection.get(*params, **kwargs)
+        if self.jitNodeCollection is None:
+            return nodeCollectionOutput
+        else:
+            jitNodeCollectionOutput = self.jitNodeCollection.get(*params, **kwargs)
+            return {"JitNodeCollection": jitNodeCollectionOutput, "NestNodeCollection" : nodeCollectionOutput}
+                    
 
 
     def __iter__(self):

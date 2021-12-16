@@ -27,7 +27,7 @@ class CreateWrapper(Wrapper):
 
     def before(self, *args, **kwargs):
         self.neuronName = args[0]
-        self.modelCount = next(iter(args[1:2]), 0)
+        self.modelCount = next(iter(args[1:2]), 1)
         self.__setup()
 
         if self.neuronName in self.nest.Models():
@@ -57,12 +57,12 @@ class CreateWrapper(Wrapper):
         modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
         jitModel = JitModel(name=self.neuronName, number=self.modelCount, variables=modelDeclatedVars)
         jitModel.addNestModule(self.nest)
+        jitModel.setCreateParams(*args, **kwargs)
 
         first, last = ModelManager.addJitModel(self.neuronName, self.modelCount, jitModel)
         initialJitNode = JitNode(name=self.neuronName, first=first, last=last)
 
         self.nodeCollectionProxy.addJitNodeCollection(JitNodeCollection(initialJitNode))
-        self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
         ModelManager.add_module_to_install(self.moduleName, self.modelHandle)
 
         createThread = JitThread(self.neuronName, self.__create_model, ModelManager.Modules)

@@ -47,7 +47,7 @@ class ModelManager():
     @staticmethod
     def addJitModel(modelName, n, jitModel):
         ModelManager.JitModels[modelName] = jitModel
-        pair = [ModelManager.Index, ModelManager.Index + n - 1]
+        pair = [ModelManager.Index, ModelManager.Index + n ]
         ModelManager.Index+= n
         if modelName in ModelManager.ModelIndexer:
             ModelManager.ModelIndexer[modelName].addRange(pair)
@@ -58,7 +58,7 @@ class ModelManager():
         return pair
     @staticmethod
     def updateJitmodel(modelName, n):
-        pair = [ModelManager.Index, ModelManager.Index + n - 1]
+        pair = [ModelManager.Index, ModelManager.Index + n]
         ModelManager.ModelIndexer[modelName].addRange(pair)
         ModelManager.Index+= n
 

@@ -1,11 +1,5 @@
 import copy
-from multiprocessing.managers import Namespace
-from os import name
-from sys import modules
-from typing import Type
-
-from numpy.core.fromnumeric import var
-from numpy.lib.function_base import insert
+from jit.interfaces.jit_interface import JitInterface
 from jit.models.model_manager import ModelManager
 from collections import defaultdict
 import numpy as np
@@ -86,11 +80,10 @@ class JitModel:
             else:
                 values = [v] * len(ids)
                 if k in self.attributes:
-                   self.attributes[k].update(ids, values)
+                    self.attributes[k].update(ids, values)
                 else:
                     newAttribute = JitAtribute(attributeName=k, ids=ids, values=values)
                     self.attributes[k] = newAttribute
-            
 
     def getKeys(self):
         return list(self.default.keys())
@@ -105,7 +98,7 @@ class JitModel:
         return self.toString()
 
 
-class JitNode():
+class JitNode:
     def __init__(self, name="None", first=0, last=0):
         self.name = name
         self.first = first
@@ -137,12 +130,12 @@ class JitNode():
         return False
 
     def __hash__(self):
-        return hash(self.name)
+        return hash(f"{self.name}{self.first}{self.last}")
 
     def __getitem__(self, key):
         if isinstance(key, int):
             if key >= self.__len__():
-                raise IndexError("index out of range")
+                raise IndexError("globalPos out of range")
             return self.__getNodesAt([key])
         elif isinstance(key, slice):
             if key.start is None:
@@ -169,7 +162,7 @@ class JitNode():
             # Must check if elements are bool first, because bool inherits from int
             if all(isinstance(x, bool) for x in key):
                 if len(key) != len(self):
-                    raise IndexError('Bool index array must be the same length as JitNode')
+                    raise IndexError('Bool globalPos array must be the same length as JitNode')
                 npKey = np.array(key, dtype=np.bool)
                 npKey = np.argwhere(npKey == True)
             # Checking that elements are not instances of bool too, because bool inherits from int
@@ -183,7 +176,7 @@ class JitNode():
             return self.__getNodesAt(key)
 
     def __getNodesAt(self, items):
-        if all(index < self.__len__() for index in items):
+        if all(globalPos < self.__len__() for globalPos in items):
             groups = self.__groupByDistance(items)
             nodes = list()
             for group in groups:
@@ -214,12 +207,21 @@ class JitNode():
         dictOfItems = jitModel.get(ids=modelsToSelect, items=keys)
         return dictOfItems
 
+    def set(self, collection, ids=None):
+        if ids is None:
+            ids = range(self.first, self.last)
+        jitModel = ModelManager.JitModels[self.name]
+        jitModel.set(ids=ids, collection=collection)
+
     def getKeys(self):
         jitModel = ModelManager.JitModels[self.name]
         return jitModel.getKeys()
 
+    def tolist(self):
+        return list(range(self.first, self.last))
 
-class JitNodeCollection:
+
+class JitNodeCollection(JitInterface):
     def __init__(self, nodes):
         if isinstance(nodes, (list, tuple)):
             if len(nodes) > 0:
@@ -237,15 +239,12 @@ class JitNodeCollection:
     def __len__(self):
         return sum([len(node) for node in self.nodes])
 
-    def __iter__(self):
-        return JitNodeCollectionIterator(self)
-
     def __getitem__(self, key):
         if isinstance(key, int):
             if abs(key) >= self.__len__():
-                raise IndexError("index out of range")
+                raise IndexError("globalPos out of range")
             actualKey = key if key >= 0 else self.__len__() - abs(key)
-            return JitNodeCollection(self.__indexing(actualKey))
+            return JitNodeCollection(self.__globalPosing(actualKey))
         elif isinstance(key, slice):
             if key.start is None:
                 start = 0
@@ -275,23 +274,23 @@ class JitNodeCollection:
         else:
             raise Exception("Only list, tuple and int are accepted")
 
-    def __indexing(self, index):
+    def __globalPosing(self, globalPos):
         blockStartsAt = 0
         blockEndsAt = -1
         for node in self.nodes:
             blockStartsAt = blockEndsAt + 1
             blockEndsAt = blockStartsAt + len(node) - 1
-            if index >= blockStartsAt and index <= blockEndsAt:
-                relativeIndex = index - blockStartsAt
-                return node[relativeIndex]
+            if globalPos >= blockStartsAt and globalPos <= blockEndsAt:
+                relativeglobalPos = globalPos - blockStartsAt
+                return node[relativeglobalPos]
         raise IndexError("list out of range")
 
     def __slicing(self, items):
         dictOfModelNames = {}
-        # map index to model name
+        # map globalPos to model name
         for i in items:
-            node, relativeIndex = self.resolveModelAt(i)
-            dictOfModelNames[i] = (node, relativeIndex)
+            node, relativeglobalPos = self.getNodeAndRelativePos(i)
+            dictOfModelNames[i] = (node, relativeglobalPos)
 
         # group dict by model name
         groups = defaultdict()
@@ -308,15 +307,15 @@ class JitNodeCollection:
             nodes.extend(newNodes)
         return nodes
 
-    def resolveModelAt(self, index):
+    def getNodeAndRelativePos(self, globalPos):
         blockStartsAt = 0
         blockEndsAt = -1
         for node in self.nodes:
             blockStartsAt = blockEndsAt + 1
             blockEndsAt = blockStartsAt + len(node) - 1
-            if index >= blockStartsAt and index <= blockEndsAt:
-                relativeIndex = index - blockStartsAt
-                return node, relativeIndex
+            if globalPos >= blockStartsAt and globalPos <= blockEndsAt:
+                relativeglobalPos = globalPos - blockStartsAt
+                return node, relativeglobalPos
         raise IndexError("list out of range")
 
     def __setitem__(self, key, value):
@@ -326,9 +325,9 @@ class JitNodeCollection:
         classNameLength = len(self.__class__.__name__) + 1
         spaces = " " * classNameLength
         instanceToString = f"{self.__class__.__name__}("
-        for index, node in enumerate(self.nodes):
-            newLineOrClose = ")" if index == len(self.nodes) - 1 else "\n"
-            padding = spaces if index > 0 else ""
+        for globalPos, node in enumerate(self.nodes):
+            newLineOrClose = ")" if globalPos == len(self.nodes) - 1 else "\n"
+            padding = spaces if globalPos > 0 else ""
             instanceToString += f"{padding}{str(node)}{newLineOrClose}"
         return instanceToString
 
@@ -344,61 +343,75 @@ class JitNodeCollection:
         return nodeCollection
 
     def setCreateParams(self, *args, **kwargs):
-        jitModel = ModelManager.JitModels[self.name]
-        jitModel.setCreateParams(*args, **kwargs)
+        pass
 
-    def get(self, *args, **kwargs):
-        # TODO implement return style using(kwargs)
-        # get all Keys from all nodes
-        allKeys = set()
+    def getChildren(self):
+        return self.nodes
+
+    def getNumberOfChildren(self):
+        return len(self.nodes)
+
+    def getKeys(self):
+        res = list()
         for node in self.nodes:
-            allKeys.update(node.getKeys())
-        if len(args) == 0:
-            args = allKeys
+            res.extend(node.getKeys())
+        return set(res)
 
-        tuples = [(node.get(args), len(node), node.name) for node in self.nodes]
-        toMerge = {}
-        for item in args:
-            subRes = []
-            for subDict in tuples:
-                if item in subDict[0]:
-                    subRes.extend(subDict[0][item])
-                else:
-                    notFound = [None] * subDict[1]
-                    subRes.extend(notFound)
-            toMerge[item] = subRes
-        models = []
-        for subDict in tuples:
-            models.extend([subDict[2]] * subDict[1])
-
-        toMerge["models"] = models
-
-        return toMerge
+    def getTuples(self, items):
+        return [(node.get(items), len(node), node.name) for node in self.nodes]
 
 
-class JitNodeCollectionIterator:
-    def __init__(self, jnc):
-        self.jnc = jnc
-        self._count = 0
+    def set(self, params=None, **kwargs):
+        if kwargs and params:
+            raise TypeError("must either provide params or kwargs, but not both.")
+        elif kwargs:
+            splitCollection = self.projectDict(kwargs)
+            for globalPos, node in enumerate(self.nodes):
+                node.set(splitCollection[globalPos])
 
-    def __iter__(self):
-        return self
+        else:
+            if isinstance(params, dict):
+                collection = splitCollection = self.projectDict(params)
+                for globalPos, node in enumerate(self.nodes):
+                    node.set(collection[globalPos])
+            elif isinstance(params, list):
+                if len(params) == 0:
+                    return
+                types = set([type(item) for item in params])
+                if len(types) != 1 and types.pop().__class__.__name__ != "dict":
+                    raise TypeError("params can only contain a dictionary or list of dictionaries")
+                if len(params) != len(self):
+                    raise ValueError(
+                        f"params is a list of dict and has {len(params)} items, but expected are {len(self)}")
 
-    def __next__(self):
-        if self._count > len(self.jnc) - 1:
-            raise StopIteration
+                currentNode = 0
+                partialLength = len(self.nodes[currentNode])
+                for globalPos, dic in enumerate(params):
+                    if globalPos < partialLength:
+                        self.nodes[currentNode].set(ids=[globalPos], collection=dic)
+                    else:
+                        currentNode += 1
+                        self.nodes[currentNode].set(ids=[globalPos], collection=dic)
+                        partialLength += len(self.nodes[currentNode])
 
-        nestElement = JitNodeCollection(self.jnc.name, first=self._count, last=self._count + 1)
-        self._count += 1
-        return nestElement
+    def tolist(self):
+        allIds = []
+        for node in self.nodes:
+            allIds.extend(node.tolist())
+        return allIds
 
 
 class JitAtribute:
     def __init__(self, attributeName, ids, values):
-        self.modelIds = ids
         self.attributeName = attributeName
         if len(ids) != len(values):
             raise ValueError(f"ids:{len(ids)} != values: {len(values)}: both ids and values must be of the same size")
+        if isinstance(ids, range):
+            self.modelIds = list(ids)
+        elif isinstance(ids, list):
+            self.modelIds = ids
+        else:
+            raise TypeError(f"{self.__class__.__name__} accepts only range or list types for ids")
         self.values = values
 
     def __contains__(self, other):
@@ -410,11 +423,11 @@ class JitAtribute:
 
     def getValueOfId(self, modeId):
         if modeId in self:
-            index = self.modelIds.index(modeId)
-            value  = self.values[index]
+            globalPos = self.modelIds.globalPos(modeId)
+            value = self.values[globalPos]
             if value.__class__.__name__ == "Parameter":
                 value = value.GetValue()
-                self.values[index] = value
+                self.values[globalPos] = value
             return value
         raise ValueError(f"the model id {modeId} is not in {str(self)}")
 
@@ -427,13 +440,14 @@ class JitAtribute:
     def __repr__(self):
         return self.toString()
 
-    def append(self, ids, values):
+    def update(self, ids, values):
         if len(ids) != len(values):
             raise ValueError(f"ids:{len(ids)} != values: {len(values)}: both ids and values must be of the same size")
 
-        for index, value in enumerate(ids):
-            if value in self:
-                self.values[index] = values[index]
+        for pos, localId in enumerate(ids):
+            if localId in self:
+                index = self.modelIds.index(localId)
+                self.values[index] = values[pos]
             else:
-                self.modelIds.append(value)
-                self.values.append(values[index])
+                self.modelIds.append(localId)
+                self.values.append(values[pos])
