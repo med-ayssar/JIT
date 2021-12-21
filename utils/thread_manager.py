@@ -23,4 +23,4 @@ class JitThread():
             ModelManager.ThreadsState[self.modelName] = exp.state.toDict()
             error_occured = True
         state = "failed" if error_occured else "finished" 
-        print(f"Process<{self.modelName}> {state}, run nest.Simulate() to finish with main process")
+        print(f"Process<{self.modelName}> has {state}, run nest.Simulate() to finish with main process")

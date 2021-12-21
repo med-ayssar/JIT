@@ -180,7 +180,9 @@ class JitNode:
             groups = self.__groupByDistance(items)
             nodes = list()
             for group in groups:
-                newNode = JitNode(name=self.name, first=group[0], last=group[1])
+                first = self.first + group[0]
+                last = first + group[1]
+                newNode = JitNode(name=self.name, first=first, last=last)
                 nodes.append(newNode)
             return nodes
 
@@ -231,81 +233,25 @@ class JitNodeCollection(JitInterface):
                     self.nodes = nodes
                 else:
                     raise TypeError(f"{self.__class__.__name__} accepts only list of int or JitNode")
+            else:
+                self.nodes = nodes
         elif isinstance(nodes, JitNode):
             self.nodes = [nodes]
         else:
             raise TypeError(f"{self.__class__.__name__} accepts only list of int or JitNode")
 
     def __len__(self):
-        return sum([len(node) for node in self.nodes])
+        if self.nodes:
+            return sum([len(node) for node in self.nodes])
+        return 0
 
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            if abs(key) >= self.__len__():
-                raise IndexError("globalPos out of range")
-            actualKey = key if key >= 0 else self.__len__() - abs(key)
-            return JitNodeCollection(self.__globalPosing(actualKey))
-        elif isinstance(key, slice):
-            if key.start is None:
-                start = 0
-            else:
-                start = key.start
-                if abs(start) > self.__len__():
-                    raise IndexError('slice start value outside of the JitNodeCollection')
-            if key.stop is None:
-                stop = self.__len__()
-            else:
-                if key.stop < 0 and abs(key.stop) < self.__len__():
-                    stop = self.__len__() - abs(key.stop)
-                else:
-                    stop = key.stop
-                    if abs(stop) >= self.__len__():
-                        raise IndexError("slice stop value outside of the JitNodeCollection")
-            step = 1 if key.step is None else key.step
-            if step < 1:
-                raise IndexError('slicing step for JitNodeCollection must be strictly positive')
-            ranges = list(range(start, stop, step))
-            newNodes = self.__slicing(ranges)
-            slicedElement = JitNodeCollection(newNodes)
-            return slicedElement
-        elif isinstance(key, (list, tuple)):
-            newNodes = newNodes = self.__slicing(key)
-            return JitNodeCollection(newNodes)
+    def setNodes(self, nodes):
+        if isinstance(nodes, list):
+            self.nodes = nodes
+        elif isinstance(nodes, JitNode):
+            self.nodes = [nodes]
         else:
-            raise Exception("Only list, tuple and int are accepted")
-
-    def __globalPosing(self, globalPos):
-        blockStartsAt = 0
-        blockEndsAt = -1
-        for node in self.nodes:
-            blockStartsAt = blockEndsAt + 1
-            blockEndsAt = blockStartsAt + len(node) - 1
-            if globalPos >= blockStartsAt and globalPos <= blockEndsAt:
-                relativeglobalPos = globalPos - blockStartsAt
-                return node[relativeglobalPos]
-        raise IndexError("list out of range")
-
-    def __slicing(self, items):
-        dictOfModelNames = {}
-        # map globalPos to model name
-        for i in items:
-            node, relativeglobalPos = self.getNodeAndRelativePos(i)
-            dictOfModelNames[i] = (node, relativeglobalPos)
-
-        # group dict by model name
-        groups = defaultdict()
-        for key, value in sorted(dictOfModelNames.items()):
-            if value[0] in groups:
-                groups[value[0]].append(value[1])
-            else:
-                groups[value[0]] = [value[1]]
-
-        # execute each split on each node
-        nodes = list()
-        for key, value in groups.items():
-            newNodes = key[value]
-            nodes.extend(newNodes)
-        return nodes
+            raise TypeError(f"{self.__class__.__name__} accepts only list or single of a JitNode instancess")
 
     def getNodeAndRelativePos(self, globalPos):
         blockStartsAt = 0
@@ -325,10 +271,13 @@ class JitNodeCollection(JitInterface):
         classNameLength = len(self.__class__.__name__) + 1
         spaces = " " * classNameLength
         instanceToString = f"{self.__class__.__name__}("
-        for globalPos, node in enumerate(self.nodes):
-            newLineOrClose = ")" if globalPos == len(self.nodes) - 1 else "\n"
-            padding = spaces if globalPos > 0 else ""
-            instanceToString += f"{padding}{str(node)}{newLineOrClose}"
+        if len(self.nodes) > 0:
+            for globalPos, node in enumerate(self.nodes):
+                newLineOrClose = ")" if globalPos == len(self.nodes) - 1 else "\n"
+                padding = spaces if globalPos > 0 else ""
+                instanceToString += f"{padding}{str(node)}{newLineOrClose}"
+        else:
+            instanceToString += "Empty)"
         return instanceToString
 
     def __str__(self):
@@ -337,8 +286,11 @@ class JitNodeCollection(JitInterface):
     def __repr__(self):
         return self.toString()
 
-    def createNodeCollection(self, moduleName):
+    def createNodeCollection(self):
+        # TODO: ask all nodes to convertthemselves to node collection
+
         jitModel = ModelManager.JitModels[self.name]
+        moduleName = f"{self.name}module"
         nodeCollection = jitModel.createNodeCollection(moduleName)
         return nodeCollection
 
@@ -359,40 +311,6 @@ class JitNodeCollection(JitInterface):
 
     def getTuples(self, items):
         return [(node.get(items), len(node), node.name) for node in self.nodes]
-
-
-    def set(self, params=None, **kwargs):
-        if kwargs and params:
-            raise TypeError("must either provide params or kwargs, but not both.")
-        elif kwargs:
-            splitCollection = self.projectDict(kwargs)
-            for globalPos, node in enumerate(self.nodes):
-                node.set(splitCollection[globalPos])
-
-        else:
-            if isinstance(params, dict):
-                collection = splitCollection = self.projectDict(params)
-                for globalPos, node in enumerate(self.nodes):
-                    node.set(collection[globalPos])
-            elif isinstance(params, list):
-                if len(params) == 0:
-                    return
-                types = set([type(item) for item in params])
-                if len(types) != 1 and types.pop().__class__.__name__ != "dict":
-                    raise TypeError("params can only contain a dictionary or list of dictionaries")
-                if len(params) != len(self):
-                    raise ValueError(
-                        f"params is a list of dict and has {len(params)} items, but expected are {len(self)}")
-
-                currentNode = 0
-                partialLength = len(self.nodes[currentNode])
-                for globalPos, dic in enumerate(params):
-                    if globalPos < partialLength:
-                        self.nodes[currentNode].set(ids=[globalPos], collection=dic)
-                    else:
-                        currentNode += 1
-                        self.nodes[currentNode].set(ids=[globalPos], collection=dic)
-                        partialLength += len(self.nodes[currentNode])
 
     def tolist(self):
         allIds = []
@@ -423,11 +341,11 @@ class JitAtribute:
 
     def getValueOfId(self, modeId):
         if modeId in self:
-            globalPos = self.modelIds.globalPos(modeId)
-            value = self.values[globalPos]
+            index = self.modelIds.index(modeId)
+            value = self.values[index]
             if value.__class__.__name__ == "Parameter":
                 value = value.GetValue()
-                self.values[globalPos] = value
+                self.values[index] = value
             return value
         raise ValueError(f"the model id {modeId} is not in {str(self)}")
 

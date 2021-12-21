@@ -15,7 +15,6 @@ from jit.models.jit_model import JitModel, JitNodeCollection, JitNode
 from jit.models.model_handle import ModelHandle
 
 
-
 class CreateWrapper(Wrapper):
 
     def __init__(self, func, original_module, isMethode=False, disable=False):
@@ -31,17 +30,18 @@ class CreateWrapper(Wrapper):
         self.__setup()
 
         if self.neuronName in self.nest.Models():
-            self.nodeCollectionProxy.setAsNodeCollection()
-            self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
-            self.__handleBuiltIn()
+            self.__handleBuiltIn(*args, **kwargs)
             return args, kwargs
 
         if not self.modelHandle.is_lib:
             self.__handleNestml(*args, **kwargs)
         else:
-            self.nodeCollectionProxy.setAsNodeCollection()
-            self.nodeCollectionProxy.setCreateParams(*args, **kwargs)
-            self.__create_model(ModelManager.Modules)
+            # extern lib and not built-in model
+            self.modelHandle.build()
+            self.nest.Install(self.modelHandle.moduleName)
+            nodeCollection = self.nest.Create(*args, **kwargs)
+            setattr(nodeCollection.__class__, "__hash__", lambda nc: hash(nc._datum))
+            self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         return args, kwargs
 
     def __setup(self):
@@ -50,7 +50,7 @@ class CreateWrapper(Wrapper):
         self.modelHandle = model_query.get_model_handle()
         self.moduleName = self.modelHandle.moduleName
 
-        self.nodeCollectionProxy = NodeCollectionProxy(self.neuronName, self.moduleName)
+        self.nodeCollectionProxy = NodeCollectionProxy()
         ModelManager.NodeCollectionProxys[self.moduleName] = self.nodeCollectionProxy
 
     def __handleNestml(self, *args, **kwargs):
@@ -62,7 +62,7 @@ class CreateWrapper(Wrapper):
         first, last = ModelManager.addJitModel(self.neuronName, self.modelCount, jitModel)
         initialJitNode = JitNode(name=self.neuronName, first=first, last=last)
 
-        self.nodeCollectionProxy.addJitNodeCollection(JitNodeCollection(initialJitNode))
+        self.nodeCollectionProxy.jitNodeCollection = JitNodeCollection(initialJitNode)
         ModelManager.add_module_to_install(self.moduleName, self.modelHandle)
 
         createThread = JitThread(self.neuronName, self.__create_model, ModelManager.Modules)
@@ -71,7 +71,10 @@ class CreateWrapper(Wrapper):
         # start thread
         createThread.start()
 
-    def __handleBuiltIn(self):
+    def __handleBuiltIn(self, *args, **kwargs):
+        nodeCollection = self.nest.Create(*args, **kwargs)
+        setattr(nodeCollection.__class__, "__hash__", lambda nc: hash(nc._datum))
+        self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         self.modelHandle = ModelHandle(self.neuronName, "", True)
         ModelManager.NodeCollectionProxys[self.neuronName] = self.nodeCollectionProxy
         ModelManager.add_module_to_install(self.neuronName, self.modelHandle)
@@ -85,8 +88,6 @@ class CreateWrapper(Wrapper):
         ModelManager.add_module_to_install(module_name, self.modelHandle)
 
     def after(self, *args):
-        if self.builtIn or self.modelHandle.is_lib:
-            self.nodeCollectionProxy.toNodeCollection()
         return self.nodeCollectionProxy
 
     def main_func(self, *args, **kwargs):
@@ -196,6 +197,17 @@ class DisableNestFunc(Wrapper):
     @ staticmethod
     def wrapps_one():
         return False
+
+
+class NodeCollectionWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, isMethode, disable)
+        self.nodeCollection = func
+        setattr(self.nodeCollection.__class__, "__hash__", lambda nc: hash(nc._datum))
+
+    @ staticmethod
+    def get_name():
+        return "nest.NodeCollection"
 
 
 def install_wrappers():
