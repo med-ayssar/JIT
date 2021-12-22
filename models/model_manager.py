@@ -3,6 +3,7 @@ from multiprocessing import Manager, Queue
 import sys
 
 from jit.models.model_indexer import ModelIndexer
+from models.jit_model import JitNodeCollection
 
 class ModelManager():
     to_populate = {}
@@ -11,7 +12,7 @@ class ModelManager():
     ThreadsState = _Manager.dict()
     Modules = Queue()
     Modules.put({})
-    NodeCollectionProxys = {}
+    NodeCollectionProxy = []
     JitModels = {}
     ModelIndexer = {}
     Index = 0

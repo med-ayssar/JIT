@@ -5,7 +5,7 @@ from jit.models.jit_model import JitModel, JitNode, JitNodeCollection
 from jit.utils.thread_manager import JitThread
 
 
-class CreateManager:
+class CreateHelper:
     def __init__(self, modelName):
         # initiate search for the model
         model_query = ModelQuery(modelName)
@@ -36,7 +36,7 @@ class CreateManager:
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # register the nodeCollectionProxy in the ModelManage stack
-        ModelManager.NodeCollectionProxys[self.neuronName] = self.nodeCollectionProxy
+        ModelManager.NodeCollectionProxys[modelName] = self.nodeCollectionProxy
 
     def handleExternalLib(self, modelName, n=1, params=None, posistions=None):
         # add module to path
@@ -48,27 +48,30 @@ class CreateManager:
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # register the nodeCollectionProxy in the ModelManage stack
-        ModelManager.NodeCollectionProxys[self.neuronName] = self.nodeCollectionProxy
+        ModelManager.NodeCollectionProxys[modelName] = self.nodeCollectionProxy
 
     def handleNestml(self, modelName, n=1, params=None, posistions=None):
         # extract structural information from the model
         modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
         # create the JitModel holding the model strucutre
-        jitModel = JitModel(name=self.neuronName, number=n, variables=modelDeclatedVars)
+        jitModel = JitModel(name=modelName, number=n, variables=modelDeclatedVars)
         # store the additional parameters in the Jitmodel instance
         jitModel.setCreateParams(n=1, params=params, posistions=posistions)
         # create the first JitNode referring to the JitModel instance
-        first, last = ModelManager.addJitModel(self.neuronName, self.modelCount, jitModel)
-        initialJitNode = JitNode(name=self.neuronName, first=first, last=last)
-
+        first, last = ModelManager.addJitModel(modelName, n, jitModel)
+        initialJitNode = JitNode(name=modelName, first=first, last=last)
+        # create instance of the JitNodeCollection
+        jitNodeCollection = JitNodeCollection(initialJitNode)
         # store the JitNodeCollection in the Proxy
-        self.nodeCollectionProxy.jitNodeCollection = JitNodeCollection(initialJitNode)
+        self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
+
+        ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
         ModelManager.add_module_to_install(self.modelHandle.moduleName, self.modelHandle)
 
         # define local function
         def createModel(instance):
             instance.modelHandle.build()
-            ModelManager.add_module_to_install(instance.modelHandle.modelName, instance.modelHandle)
+            ModelManager.add_module_to_install(instance.modelHandle.moduleName, instance.modelHandle)
 
         createThread = JitThread(modelName, createModel, self)
         ModelManager.Threads.append(createThread)
