@@ -1,5 +1,8 @@
 from jit.utils.create_report import CreateReport
 from jit.models.model_manager import ModelManager
+import gc
+
+from jit.models.node_collection_proxy import NodeCollectionProxy
 
 
 class SimulateHelper:
@@ -25,8 +28,11 @@ class SimulateHelper:
                 self.error_occured = True
 
     def installModules(self):
-        for module in ModelManager.Modules:
+
+        while len(ModelManager.Modules) > 0:
+            module, addLibToPath = ModelManager.Modules.pop(0)
             try:
+                addLibToPath()
                 ModelManager.Nest.Install(module)
             except Exception as exp:
                 self.reportErrors[module] = {
@@ -37,4 +43,37 @@ class SimulateHelper:
 
     def convertToNodeCollection(self):
         for ncp in ModelManager.NodeCollectionProxy:
-            ncp.toNodeCollection()
+            if ncp.jitNodeCollection:
+                ncp.toNodeCollection()
+        # clear Array of NodeCollectionProxy<JitNodeCollection>
+        #ModelManager.NodeCollectionProxy = []
+
+    def broadcastChanges(self):
+        for ncp in gc.get_objects():
+            if isinstance(ncp, NodeCollectionProxy):
+                if ncp.jitNodeCollection and ncp.jitNodeCollection.isNotInitial:
+                    nestIds = ncp.getNestIds()
+                    nodeCollection = ModelManager.Nest.NodeCollection(nestIds)
+                    if ncp.nestNodeCollection is None:
+                        ncp.nestNodeCollection = nodeCollection
+                    else:
+                        ncp.nestNodeCollection += nodeCollection
+                    ncp.jitNodeCollection = None
+
+    def __del__(self):
+        print("Simulation Ends")
+
+    def showReport(self):
+        if len(self.reportErrors) > 0:
+            errorSummary = "While processing the models, the follwing errors have occured:\n" + str(self.reportErrors)
+            print(errorSummary)
+        # print Create summary
+        print(self.report)
+
+    def mustAbort(self):
+        return self.errorOccured
+
+    def reset(self):
+        self.report = CreateReport()
+        self.reportErrors = {}
+        self.errorOccured = False

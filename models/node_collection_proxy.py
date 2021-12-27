@@ -4,9 +4,12 @@ from jit.interfaces.jit_interface import JitInterface
 
 
 class NodeCollectionProxy(JitInterface):
-    def __init__(self, jitNodeCollection=None, nestNodeCollection=None):
+    def __init__(self, jitNodeCollection=None, nestNodeCollection=None, virtualIds=None):
         self.jitNodeCollection = jitNodeCollection
         self.nestNodeCollection = nestNodeCollection
+        if virtualIds is None:
+            virtualIds = []
+        self.virtualIds = virtualIds
 
     def getChildren(self):
         children = []
@@ -39,7 +42,11 @@ class NodeCollectionProxy(JitInterface):
         if self.nestNodeCollection:
             getRes = self.nestNodeCollection.get(items)
             size = len(self.nestNodeCollection)
-            names = set(getRes["model"])
+            names = "Unknown"
+            try:
+                names = set(getRes["model"])
+            except:
+                pass
             tuples.append((getRes, size, names))
         return tuples
 
@@ -81,13 +88,21 @@ class NodeCollectionProxy(JitInterface):
                 self.__dict__["nestNodeCollection"] = value
             else:
                 raise ValueError(f"{self.__class__.__name__}.{name} accepts only a NodeCollection instance")
+        elif name == "virtualIds":
+            self.__dict__["virtualIds"] = value
         else:
             raise KeyError(f"{self.__class__.__name__} doesn't have {name} as attribute")
+
+    def getNestIds(self):
+        return self.jitNodeCollection.getNestIds()
 
     def toNodeCollection(self):
         if self.jitNodeCollection:
             nodeCollection = self.jitNodeCollection.createNodeCollection()
-            self.nestNodeCollection += nodeCollection
+            if self.nestNodeCollection is None:
+                self.nestNodeCollection = nodeCollection
+            else:
+                self.nestNodeCollection += nodeCollection
             self.jitNodeCollection = None
         else:
             raise Exception(f"{self.__class__.__name__} has no instance of JitNodeCollection")
@@ -121,3 +136,37 @@ class NodeCollectionProxy(JitInterface):
 
     def __repr__(self):
         return self.toString()
+
+    def tolist(self):
+        ids = []
+        for idsRange in self.virtualIds:
+            if isinstance(idsRange, range):
+                ids.extend(idsRange)
+            else:
+                ids.append(idsRange)
+        return ids
+
+    def __getitem__(self, key):
+        newInstance = super().__getitem__(key)
+        if hasattr(key, "__iter__"):
+            for item in key:
+                newInstance.virtualIds.append(self.__getSubIds(item))
+        elif isinstance(key, slice):
+            items = list(range(key.stop)[key])
+            for item in items:
+                newInstance.virtualIds.append(self.__getSubIds(item))
+        else:
+            newInstance.virtualIds.append(self.__getSubIds(key))
+        return newInstance
+
+    def __getSubIds(self, key):
+        blockStartsAt = 0
+        blockEndsAt = -1
+        for ids in self.virtualIds:
+            blockStartsAt = blockEndsAt + 1
+            blockEndsAt = blockStartsAt + len(ids) - 1
+            if key >= blockStartsAt and key <= blockEndsAt:
+                relativePos = key - blockStartsAt
+                return range(ids[relativePos], ids[relativePos] + 1)
+
+        raise IndexError("list out of range")

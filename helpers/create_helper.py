@@ -13,8 +13,6 @@ class CreateHelper:
         self.modelHandle = model_query.get_model_handle()
         # prepare the NodeCollectionProxy instance
         self.nodeCollectionProxy = NodeCollectionProxy()
-        # register the NodeCollectionProxy instance
-        ModelManager.NodeCollectionProxys[modelName] = self.nodeCollectionProxy
 
     def Create(self, modelName, n=1, params=None, posistions=None):
         # if the model is already installed
@@ -30,25 +28,31 @@ class CreateHelper:
 
     def handleBuiltIn(self, modelName, n=1, params=None, posistions=None):
         # create the real instance of NodeCollection
-        nodeCollection = self.nest.Create(modelName, n, params, posistions)
+        nodeCollection = ModelManager.Nest.Create(modelName, n, params, posistions)
         # make the NodeCollection hashable, will be removed later
         setattr(nodeCollection.__class__, "__hash__", lambda nc: hash(nc._datum))
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
-        # register the nodeCollectionProxy in the ModelManage stack
-        ModelManager.NodeCollectionProxys[modelName] = self.nodeCollectionProxy
+        # set Ids range
+        first, last = ModelManager.updateIndex(n)
+        self.nodeCollectionProxy.virtualIds.append(range(first, last+1))
+
+        ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleExternalLib(self, modelName, n=1, params=None, posistions=None):
         # add module to path
-        self.modelHandle.build()
+        self.modelHandle.add_module_to_path()
         # install the module
         ModelManager.Nest.Install(self.modelHandle.moduleName)
         # create the instances of the module
         nodeCollection = ModelManager.Nest.Create(modelName, n, params, posistions)
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
-        # register the nodeCollectionProxy in the ModelManage stack
-        ModelManager.NodeCollectionProxys[modelName] = self.nodeCollectionProxy
+        # set Ids range
+        first, last = ModelManager.updateIndex(n)
+        self.nodeCollectionProxy.virtualIds.append(range(first, last+1))
+
+        ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleNestml(self, modelName, n=1, params=None, posistions=None):
         # extract structural information from the model
@@ -61,19 +65,16 @@ class CreateHelper:
         first, last = ModelManager.addJitModel(modelName, n, jitModel)
         initialJitNode = JitNode(name=modelName, first=first, last=last)
         # create instance of the JitNodeCollection
-        jitNodeCollection = JitNodeCollection(initialJitNode)
+        jitNodeCollection = JitNodeCollection(initialJitNode, isNotInitial=False)
         # store the JitNodeCollection in the Proxy
         self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
+        # set Ids range
+        self.nodeCollectionProxy.virtualIds.append(range(first, last))
 
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
-        ModelManager.add_module_to_install(self.modelHandle.moduleName, self.modelHandle)
+        ModelManager.add_module_to_install((self.modelHandle.moduleName, self.modelHandle.add_module_to_path))
 
-        # define local function
-        def createModel(instance):
-            instance.modelHandle.build()
-            ModelManager.add_module_to_install(instance.modelHandle.moduleName, instance.modelHandle)
-
-        createThread = JitThread(modelName, createModel, self)
+        createThread = JitThread(modelName, self.modelHandle.build)
         ModelManager.Threads.append(createThread)
         # start thread
         createThread.start()

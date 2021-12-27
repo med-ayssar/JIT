@@ -16,6 +16,10 @@ class JitModel:
 
     def __len__(self):
         return self.count
+    
+    def addNestIds(self, x, y):
+        indexer = ModelManager.ModelIndexer[self.name]
+        indexer.addNestIds(x=x, y=y)
 
     def addNestModule(self, module):
         self.nest = module
@@ -181,7 +185,7 @@ class JitNode:
             nodes = list()
             for group in groups:
                 first = self.first + group[0]
-                last = first + group[1]
+                last = first + group[1] - group[0]
                 newNode = JitNode(name=self.name, first=first, last=last)
                 nodes.append(newNode)
             return nodes
@@ -222,10 +226,23 @@ class JitNode:
     def tolist(self):
         return list(range(self.first, self.last))
 
+    def addNestIds(self, ids):
+        if len(self) == (ids[1] -  ids[0] + 1):
+            jitModel = ModelManager.JitModels[self.name]
+            jitModel.addNestIds(x=[self.first, self.last], y=ids)
+
+    def getNestIds(self):
+        indexer = ModelManager.ModelIndexer[self.name]
+        return indexer.getNestIdsAt([self.first, self.last])
+
+
+
 
 class JitNodeCollection(JitInterface):
-    def __init__(self, nodes):
-        if isinstance(nodes, (list, tuple)):
+    def __init__(self, nodes=None, isNotInitial=True):
+        if nodes is None:
+            self.nodes = list()
+        elif isinstance(nodes, (list, tuple)):
             if len(nodes) > 0:
                 if isinstance(nodes[0], int):
                     pass
@@ -239,6 +256,8 @@ class JitNodeCollection(JitInterface):
             self.nodes = [nodes]
         else:
             raise TypeError(f"{self.__class__.__name__} accepts only list of int or JitNode")
+
+        self.isNotInitial = isNotInitial
 
     def __len__(self):
         if self.nodes:
@@ -268,7 +287,7 @@ class JitNodeCollection(JitInterface):
         raise TypeError("JitNodeCollection object does not support item assignment")
 
     def toString(self):
-        classNameLength = len(self.__class__.__name__) + 1
+        classNameLength = len(self.__class__.__name__) + len("NodeCollectionProxy") + 2
         spaces = " " * classNameLength
         instanceToString = f"{self.__class__.__name__}("
         if len(self.nodes) > 0:
@@ -286,13 +305,26 @@ class JitNodeCollection(JitInterface):
     def __repr__(self):
         return self.toString()
 
+    def getNestIds(self):
+        ids = []
+        for node in self.nodes:
+            ids.extend(node.getNestIds())
+        return ids
+
     def createNodeCollection(self):
         # TODO: ask all nodes to convertthemselves to node collection
-
-        jitModel = ModelManager.JitModels[self.name]
-        moduleName = f"{self.name}module"
-        nodeCollection = jitModel.createNodeCollection(moduleName)
-        return nodeCollection
+        # This  JitCollection must contain the original created models before indexing or slicing
+        if not self.isNotInitial:
+            jitNode = self.nodes[0]
+            keys = self.getKeys()
+            params = jitNode.get(keys=keys)
+            nodeCollection = ModelManager.Nest.Create(jitNode.name, n=len(jitNode), params=params)
+            ids = nodeCollection.tolist()
+            idsInterval = [ids[0], ids[-1]]
+            jitNode.addNestIds(idsInterval)
+            self.isNotInitial = True
+            return nodeCollection
+        raise Exception("Only initial JitNodeCollection can be converted to NodeCollection")
 
     def setCreateParams(self, *args, **kwargs):
         pass

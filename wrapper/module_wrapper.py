@@ -1,6 +1,6 @@
 import sys
 from importlib import import_module
-from inspect import getmembers, isfunction, ismethod, ismodule
+from inspect import getmembers, isclass, isfunction, ismethod, ismodule
 from jit.wrapper.wrappers import to_wrap
 
 
@@ -18,10 +18,13 @@ class ModuleWrapper:
         nest_functions = getmembers(added_module, isfunction)
         nest_methods = getmembers(added_module, ismethod)
         nest_module = getmembers(added_module, ismodule)
+        nest_classes = getmembers(added_module, isclass)
         # insert nest functions
         self.__wrapp_calls(nest_functions)
         # insert nest methodes
         self.__wrapp_calls(nest_methods, True)
+        # insert nest classes
+        self.__wrapp_module_Classes(nest_classes)
         # insert module
         for module in nest_module:
             m = parent + f".{module[0]}"
@@ -38,6 +41,19 @@ class ModuleWrapper:
             else:
                 func_wrapper = item[1]
             self.__dict__[item[0]] = func_wrapper
+    def __wrapp_module_Classes(self, iterator):
+        for item in iterator:
+            class_wrapper = None
+            prefix = self.__dict__["wrapped_module_name"]
+            class_path = f"{prefix}.{item[0]}"
+            if class_path in to_wrap:
+                class_wrapper = to_wrap[class_path](
+                    item[1], self.get_original(), False).wrapped_func
+            else:
+                class_wrapper = item[1]
+            self.__dict__[item[0]] = class_wrapper
+            #setattr(self, item[0], class_wrapper)
+
 
     def __getattr__(self, k):
         module_to_add = self.__dict__["wrapped_module_name"]
