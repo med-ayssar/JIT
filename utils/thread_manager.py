@@ -10,6 +10,8 @@ class JitThread():
 
     def join(self):
         self.process.join()
+    def terminate(self):
+        self.process.terminate()
 
     def start(self):
         self.process.start()

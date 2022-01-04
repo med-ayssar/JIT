@@ -44,7 +44,7 @@ class NodeCollectionProxy(JitInterface):
             size = len(self.nestNodeCollection)
             names = "Unknown"
             try:
-                names = set(getRes["model"])
+                names = getRes["model"]
             except:
                 pass
             tuples.append((getRes, size, names))
@@ -111,8 +111,9 @@ class NodeCollectionProxy(JitInterface):
         raise TypeError("NodeCollectionProxy object does not support item assignment")
 
     def __add__(self, other):
-        if self.isNodeCollection:
-            return self.node.__add__(other)
+        nestNodeCollection = self.nestNodeCollection + other.nestNodeCollection if self.nestNodeCollection else None
+        jitNodeCollection = self.jitNodeCollection + other.jitNodeCollection if self.jitNodeCollection else None
+        return NodeCollectionProxy(jitNodeCollection=jitNodeCollection, nestNodeCollection=nestNodeCollection)
 
     def __len__(self):
         count = 0
@@ -136,6 +137,28 @@ class NodeCollectionProxy(JitInterface):
 
     def __repr__(self):
         return self.toString()
+
+    def __eq__(self, other):
+        return self.tolist() == other.tolist()
+
+    def __hash__(self):
+        jitHash = 0
+        if self.jitNodeCollection:
+            jitHash = hash(self.jitNodeCollection)
+        nestHash = 0
+        if self.nestNodeCollection:
+            nestHash = hash(self.nestNodeCollection)
+        return jitHash ^ nestHash
+
+    def __getattr__(self, key):
+        if key in self.__dict__:
+            return self.__dict__[key]
+        elif self.nestNodeCollection:
+            return getattr(self.nestNodeCollection, key)
+        elif self.jitNodeCollection:
+            return getattr(self.jitNodeCollection, key)
+        else:
+            raise KeyError(f"NodeCollectionProxy doesn't have {key} as attribute")
 
     def tolist(self):
         ids = []
@@ -170,3 +193,11 @@ class NodeCollectionProxy(JitInterface):
                 return range(ids[relativePos], ids[relativePos] + 1)
 
         raise IndexError("list out of range")
+
+    def hasJitNodeCollection(self):
+        return self.jitNodeCollection is not None
+
+    def set(self, params=None, **kwargs):
+        if self.nestNodeCollection and self.jitNodeCollection is None:
+            return self.nestNodeCollection.set(params, **kwargs)
+        return super().set(params, **kwargs)

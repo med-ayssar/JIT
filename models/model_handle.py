@@ -90,7 +90,7 @@ class ModelHandle():
         declaredVariables.update(self.__extractVariables(astNeuron.get_state_blocks))
         declaredVariables.update(self.__extractVariables(astNeuron.get_parameter_blocks))
         return declaredVariables
-       
+
     def __extractVariables(self, modelBlockFunc):
         blocks = modelBlockFunc()
         if not isinstance(blocks, list):
@@ -99,5 +99,13 @@ class ModelHandle():
         for stateBlock in blocks:
             for dec in stateBlock.get_declarations():
                 for variable in dec.get_variables():
-                    variables[variable.get_name()] = dec.get_expression().get_numeric_literal()
+                    expression = dec.get_expression()
+                    if expression.__class__.__name__ == "ASTSimpleExpression":
+                        variables[variable.get_name()] = expression.get_numeric_literal()
+                    elif hasattr(expression, "unary_operator") and expression.unary_operator.is_unary_minus:
+                        literal = - expression.expression.get_numeric_literal()
+                        variables[variable.get_name()] = literal
+                    else:
+                        raise RuntimeError("ModelHandle doesn't know how to handle this case")
+
         return variables

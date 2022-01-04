@@ -1,9 +1,12 @@
+from jit.helpers.connect_helper import ConnectHelper
 from jit.helpers.nodeCollection_helper import NodeCollectionHelper
 from jit.wrapper.wrapper import Wrapper
 import sys
 from loguru import logger
 from jit.helpers.create_helper import CreateHelper
 from jit.helpers.simulate_helper import SimulateHelper
+from jit.helpers.model_helper import CopyModel
+from jit.models.model_manager import ModelManager
 
 
 class CreateWrapper(Wrapper):
@@ -25,22 +28,39 @@ class CreateWrapper(Wrapper):
         pass
 
     @staticmethod
-    def get_name():
+    def getName():
         return "nest.Create"
 
 
 class ConnectWrapper(Wrapper):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, isMethode, disable)
+        self.connectionHelper = ConnectHelper()
 
-    def before(self, *args, **kwargs):
-        return super().before(*args, **kwargs)
+    def before(self, pre, post, conn_spec=None, syn_spec=None, return_synapsecollection=False):
+        # reset the SimulateHelper
+        self.connectionHelper.reset()
+        sourceModelName = set(pre.get()["models"]) if pre.hasJitNodeCollection() else set()
+        targetModelName = set(post.get()["models"]) if post.hasJitNodeCollection() else set()
+        models = sourceModelName.union(targetModelName)
+        # wait for all threads to finish
+        rootModels = ModelManager.getRootOf(models)
+        self.connectionHelper.waitForThreads(rootModels)
+        # install all new modules
+        self.connectionHelper.installModules(rootModels)
+        # convert all JitNodeCollections to NodeCollections
+        self.connectionHelper.convertToNodeCollection(pre)
+        self.connectionHelper.convertToNodeCollection(post)
 
-    def after(self, *args):
-        return super().after(*args)
+        # print report summary
+        self.connectionHelper.showReport()
+        # check if we must abort before running the simulate
+        if self.connectionHelper.mustAbort():
+            sys.exit()
+        return (pre.nestNodeCollection, post.nestNodeCollection), {"conn_spec": conn_spec, "syn_spec": syn_spec, "return_synapsecollection": return_synapsecollection}
 
     @staticmethod
-    def get_name():
+    def getName():
         return "nest.Connect"
 
 
@@ -68,8 +88,11 @@ class SimulateWrapper(Wrapper):
 
         return args, kwargs
 
+    def after(self, *args):
+        self.simulateHelper.deleteJitModels()
+
     @ staticmethod
-    def get_name():
+    def getName():
         return "nest.Simulate"
 
 
@@ -79,7 +102,7 @@ class DisableNestFunc(Wrapper):
         super().__init__(*args, **kwargs)
 
     @ staticmethod
-    def get_name():
+    def getName():
         # just an example how to disable nest functions
         return ["nest.Install"]
 
@@ -101,20 +124,99 @@ class NodeCollectionWrapper(Wrapper):
         return nodeCollectionProxy
 
     @ staticmethod
-    def get_name():
+    def getName():
         return "nest.NodeCollection"
 
 
-def install_wrappers():
+class CopyModelWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, True, disable)
+
+    def main_func(self, existing, new, params=None):
+        CopyModel(old=existing, new=new, newDefault=params).copyModel()
+
+    @ staticmethod
+    def getName():
+        return "nest.CopyModel"
+
+
+class GetStatusWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, nodes, keys=None, output=""):
+        res = []
+        for node in nodes:
+            if node.jitNodeCollection:
+                if keys is None:
+                    res.append(node.jitNodeCollection.get())
+                else:
+                    res.append(node.jitNodeCollection.get(keys))
+
+            if node.nestNodeCollection:
+                res.extend(ModelManager.Nest.GetStatus(node.nestNodeCollection, keys))
+        return res
+
+    @ staticmethod
+    def getName():
+        return "nest.GetStatus"
+
+
+class SetStatusWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, nodes, keys=None, output=""):
+        res = []
+        for node in nodes:
+            if node.jitNodeCollection:
+                if keys is None:
+                    res.append(node.jitNodeCollection.get())
+                else:
+                    res.append(node.jitNodeCollection.get(keys))
+
+            if node.nestNodeCollection:
+                res.extend(ModelManager.Nest.GetStatus(node.nestNodeCollection, keys))
+        return res
+
+    @ staticmethod
+    def getName():
+        return "nest.SetStatus"
+
+
+class GetDefaultsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, modelName, keys=None, output=""):
+        if modelName in ModelManager.JitModels:
+            defautls = ModelManager.JitModels[modelName].default
+            if keys is None:
+                return defautls
+            else:
+                res = {}
+                for k, v in defautls.items():
+                    if k in keys:
+                        res[k] = v
+                return res
+        elif modelName in ModelManager.Nest.Models():
+            return ModelManager.Nest.GetDefaults(modelName, keys, output)
+
+    @ staticmethod
+    def getName():
+        return "nest.GetDefaults"
+
+
+def installWrappers():
     sub_classes = Wrapper.__subclasses__()
     to_wrap = {}
     for sub_clz in sub_classes:
         if sub_clz.wrapps_one():
-            to_wrap[sub_clz.get_name()] = sub_clz
+            to_wrap[sub_clz.getName()] = sub_clz
         else:
-            for name in sub_clz.get_name():
+            for name in sub_clz.getName():
                 to_wrap[name] = sub_clz
     return to_wrap
 
 
-to_wrap = install_wrappers()
+to_wrap = installWrappers()

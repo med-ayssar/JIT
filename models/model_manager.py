@@ -10,7 +10,7 @@ class ModelManager():
     _Manager = Manager()
     Threads = []
     ThreadsState = _Manager.dict()
-    Modules = list()
+    Modules = dict()
     NodeCollectionProxy = []
     JitModels = {}
     ModelIndexer = {}
@@ -29,9 +29,9 @@ class ModelManager():
         ModelManager.to_populate[name][0] = nodeCollectionInstance
 
     @staticmethod
-    def add_module_to_install(name):
+    def add_module_to_install(name, addToPathFunc):
         try:
-            ModelManager.Modules.append(name)
+            ModelManager.Modules[name] = addToPathFunc
         except Exception as exp:
             print(exp)
             sys.exit()
@@ -66,10 +66,28 @@ class ModelManager():
         ModelManager.Index += n
 
     @staticmethod
-    def updateIndex(n):
-        pair = [ModelManager.Index, ModelManager.Index + n - 1]
+    def updateIndex(modelName, n):
+        pair = [ModelManager.Index, ModelManager.Index + n]
         ModelManager.Index += n
+        if modelName in ModelManager.ModelIndexer:
+            ModelManager.ModelIndexer[modelName].addRange(pair)
+        else:
+            modelIndexer = ModelIndexer(modelName)
+            modelIndexer.addRange(pair)
+            ModelManager.ModelIndexer[modelName] = modelIndexer
         return pair
+
+
+    @staticmethod
+    def getRootOf(models):
+        roots = set()
+        for model in models:
+            jitModel = ModelManager.JitModels[model]
+            if len(jitModel.alias) == 0:
+                roots.add(model)
+            elif jitModel.root:
+                roots.append(jitModel.root)
+        return roots
 
     @staticmethod
     def getNodeCollectionProxyAt(index):

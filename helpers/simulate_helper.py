@@ -1,3 +1,4 @@
+from types import MethodDescriptorType
 from jit.utils.create_report import CreateReport
 from jit.models.model_manager import ModelManager
 import gc
@@ -29,11 +30,16 @@ class SimulateHelper:
 
     def installModules(self):
 
-        while len(ModelManager.Modules) > 0:
-            module, addLibToPath = ModelManager.Modules.pop(0)
+        for model, addLibToPath in ModelManager.Modules.items():
+            module = f"{model}module"
             try:
                 addLibToPath()
                 ModelManager.Nest.Install(module)
+                jitModel = ModelManager.JitModels[model]
+                if len(jitModel.alias) > 0:
+                    for alias in jitModel.alias:
+                        newModel = ModelManager.JitModels[alias]
+                        ModelManager.Nest.CopyModel(jitModel.name, newModel.name, newModel.default)
             except Exception as exp:
                 self.reportErrors[module] = {
                     "phase": "Install",
@@ -77,3 +83,6 @@ class SimulateHelper:
         self.report = CreateReport()
         self.reportErrors = {}
         self.errorOccured = False
+
+    def deleteJitModels(self):
+        ModelManager.JitModels.clear()

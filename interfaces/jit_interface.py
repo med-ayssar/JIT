@@ -1,4 +1,5 @@
 from jit.utils.help import whichFunc
+import nest
 # class JitMeta(type):
 #     def __instancecheck__(cls, instance):
 #         return cls.__subclasscheck__(type(instance))
@@ -14,22 +15,28 @@ from jit.utils.help import whichFunc
 class JitInterface():
 
     def getChildren(self):
-        raise NotImplementedError(f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def getNumberOfChildren(self):
-        raise NotImplementedError(f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def getKeys(self):
-        raise NotImplementedError(f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def getTuples(self, items):
-        raise NotImplementedError(f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def getNodeAndRelativePos(self, golbalPos):
-        raise NotImplementedError(f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def setNodes(self, nodes):
-        raise NotImplementedError(f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def __iter__(self):
         return JitIterator(self)
@@ -51,8 +58,10 @@ class JitInterface():
 
     def get(self, *args, **kwargs):
         allKeys = self.getKeys()
+        hasModels = False
         if len(args) == 0:
             args = allKeys
+            hasModels = True
 
         tuples = self.getTuples(args)
         toMerge = {}
@@ -60,19 +69,29 @@ class JitInterface():
             subRes = []
             for subDict in tuples:
                 if item in subDict[0]:
-                    subRes.extend(subDict[0][item])
+                    value = subDict[0][item]
+                    if isinstance(value, (tuple, list)):
+                        subRes.extend(value)
+                    else:
+                        values = [value] * subDict[1]
+                        subRes.extend(values)
                 else:
                     notFound = [None] * subDict[1]
                     subRes.extend(notFound)
             toMerge[item] = subRes
-        models = []
-        for subDict in tuples:
-            if isinstance(subDict[2], (tuple, list)):
-                models.extend(subDict[2])
-            else:
-                models.extend([subDict[2]] * subDict[1])
+        if hasModels:
+            models = []
+            for subDict in tuples:
+                if isinstance(subDict[2], (tuple, list)):
+                    models.extend(subDict[2])
+                else:
+                    models.extend([subDict[2]] * subDict[1])
 
-        toMerge["models"] = models
+            toMerge["models"] = models
+        if len(toMerge.keys()) == 1:
+            values = toMerge[list(toMerge.keys())[0]]
+            if len(values) == 1:
+                return values[0]
 
         return toMerge
 
@@ -200,6 +219,7 @@ class JitIterator:
             raise StopIteration
 
         node, relativeglobalPos = self.node.getNodeAndRelativePos(self._count)
-        nextElement = self.node.__class__(node[relativeglobalPos])
+        nextElement = self.node.__class__()
+        nextElement.setNodes(node[relativeglobalPos])
         self._count += 1
         return nextElement

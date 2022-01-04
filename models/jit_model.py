@@ -3,31 +3,27 @@ from jit.interfaces.jit_interface import JitInterface
 from jit.models.model_manager import ModelManager
 from collections import defaultdict
 import numpy as np
+import copy
 
 
 class JitModel:
-    def __init__(self, name, number, variables, variations=None):
+    def __init__(self, name, variables, variations=None):
         self.name = name
-        self.count = number
         self.default = variables
-        self.nest = None
         self.createParams = {}
         self.attributes = {}
+        self.alias = []
+        self.root = None
 
-    def __len__(self):
-        return self.count
-    
+
     def addNestIds(self, x, y):
         indexer = ModelManager.ModelIndexer[self.name]
         indexer.addNestIds(x=x, y=y)
 
-    def addNestModule(self, module):
-        self.nest = module
-
     def create(self):
-        if self.nest:
-            if self.name not in self.nest.Models():
-                self.nest.Install(self.libName)
+        if ModelManager.Nest:
+            if self.name not in ModelManager.Nest.Models():
+                ModelManager.Nest.Install(self.libName)
             self.toNodeCollection()
             return True
         return False
@@ -36,13 +32,15 @@ class JitModel:
         self.createParams["args"] = args
         self.createParams["kwargs"] = kwargs
 
-    def createNodeCollection(self, moduleName):
-        if self.nest:
+    def createNodeCollection(self, params):
+        if ModelManager.Nest:
             if bool(self.createParams):
                 args = self.createParams["args"]
                 kwargs = self.createParams["kwargs"]
-                self.nest.Install(moduleName)
-                nodeCollection = self.nest.Create(*args, **kwargs)
+                kwargs.update(params)
+                params = kwargs.pop('params', None)
+                nodeCollection = ModelManager.Nest.Create(*args, **kwargs)
+                nodeCollection.set(params)
                 return nodeCollection
             else:
                 raise Exception(
@@ -212,6 +210,9 @@ class JitNode:
         jitModel = ModelManager.JitModels[self.name]
         dictOfItems = jitModel.get(ids=modelsToSelect, items=keys)
         return dictOfItems
+    def getPosition(self):
+        jitModel = ModelManager.JitModels[self.name]
+        return jitModel.position
 
     def set(self, collection, ids=None):
         if ids is None:
@@ -227,7 +228,7 @@ class JitNode:
         return list(range(self.first, self.last))
 
     def addNestIds(self, ids):
-        if len(self) == (ids[1] -  ids[0] + 1):
+        if len(self) == (ids[1] - ids[0] + 1):
             jitModel = ModelManager.JitModels[self.name]
             jitModel.addNestIds(x=[self.first, self.last], y=ids)
 
@@ -235,7 +236,9 @@ class JitNode:
         indexer = ModelManager.ModelIndexer[self.name]
         return indexer.getNestIdsAt([self.first, self.last])
 
-
+    def createNodeCollection(self, params):
+        jitModel = ModelManager.JitModels[self.name]
+        return jitModel.createNodeCollection(params)
 
 
 class JitNodeCollection(JitInterface):
@@ -258,6 +261,7 @@ class JitNodeCollection(JitInterface):
             raise TypeError(f"{self.__class__.__name__} accepts only list of int or JitNode")
 
         self.isNotInitial = isNotInitial
+        self.spatial = None
 
     def __len__(self):
         if self.nodes:
@@ -305,6 +309,12 @@ class JitNodeCollection(JitInterface):
     def __repr__(self):
         return self.toString()
 
+    def __add__(self, other):
+        mynodes = copy.deepcopy(self.nodes)
+        otherNodes = copy.deepcopy(copy.nodes)
+        mynodes.extend(otherNodes)
+        return JitNodeCollection(nodes=mynodes)
+
     def getNestIds(self):
         ids = []
         for node in self.nodes:
@@ -312,13 +322,12 @@ class JitNodeCollection(JitInterface):
         return ids
 
     def createNodeCollection(self):
-        # TODO: ask all nodes to convertthemselves to node collection
         # This  JitCollection must contain the original created models before indexing or slicing
         if not self.isNotInitial:
             jitNode = self.nodes[0]
             keys = self.getKeys()
-            params = jitNode.get(keys=keys)
-            nodeCollection = ModelManager.Nest.Create(jitNode.name, n=len(jitNode), params=params)
+            params =  params = jitNode.get(keys=keys)
+            nodeCollection = jitNode.createNodeCollection({"params": params})
             ids = nodeCollection.tolist()
             idsInterval = [ids[0], ids[-1]]
             jitNode.addNestIds(idsInterval)
@@ -349,6 +358,9 @@ class JitNodeCollection(JitInterface):
         for node in self.nodes:
             allIds.extend(node.tolist())
         return allIds
+
+    def setSpatial(self, positions):
+        self.spatial = vars(positions)
 
 
 class JitAtribute:
