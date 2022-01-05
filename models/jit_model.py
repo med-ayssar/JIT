@@ -13,12 +13,26 @@ class JitModel:
         self.createParams = {}
         self.attributes = {}
         self.alias = []
+        self.hasChanged = False
         self.root = None
-
 
     def addNestIds(self, x, y):
         indexer = ModelManager.ModelIndexer[self.name]
         indexer.addNestIds(x=x, y=y)
+
+    def setDefaults(self, dicOfParams):
+        keysToChange = dicOfParams.keys()
+        modelsIds = ModelManager.getIds(self.name)
+        for key in keysToChange:
+            ignoredModels = set()
+            if key in self.attributes:
+                attribute = self.attributes[key]
+                ignoredModels = attribute.modelIds
+            modelsToUpdate = list(set(modelsIds).difference(ignoredModels))
+            self.set(modelsToUpdate, {key: self.default[key]})
+
+        self.default.update(dicOfParams)
+        self.hasChanged = True
 
     def create(self):
         if ModelManager.Nest:
@@ -210,6 +224,7 @@ class JitNode:
         jitModel = ModelManager.JitModels[self.name]
         dictOfItems = jitModel.get(ids=modelsToSelect, items=keys)
         return dictOfItems
+
     def getPosition(self):
         jitModel = ModelManager.JitModels[self.name]
         return jitModel.position
@@ -326,7 +341,7 @@ class JitNodeCollection(JitInterface):
         if not self.isNotInitial:
             jitNode = self.nodes[0]
             keys = self.getKeys()
-            params =  params = jitNode.get(keys=keys)
+            params = params = jitNode.get(keys=keys)
             nodeCollection = jitNode.createNodeCollection({"params": params})
             ids = nodeCollection.tolist()
             idsInterval = [ids[0], ids[-1]]
@@ -370,10 +385,11 @@ class JitAtribute:
             raise ValueError(f"ids:{len(ids)} != values: {len(values)}: both ids and values must be of the same size")
         if isinstance(ids, range):
             self.modelIds = list(ids)
-        elif isinstance(ids, list):
+        elif isinstance(ids, (list, set)):
             self.modelIds = ids
         else:
-            raise TypeError(f"{self.__class__.__name__} accepts only range or list types for ids")
+            raise TypeError(
+                f"{self.__class__.__name__} accepts only range or list types for ids, but ids have type of{ids.__class__.__name__}")
         self.values = values
 
     def __contains__(self, other):

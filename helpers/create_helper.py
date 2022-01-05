@@ -8,7 +8,6 @@ from jit.utils.thread_manager import JitThread
 
 class CreateHelper:
     def __init__(self, modelName):
-
         # prepare the NodeCollectionProxy instance
         self.nodeCollectionProxy = NodeCollectionProxy()
 

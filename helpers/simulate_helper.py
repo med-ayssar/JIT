@@ -46,6 +46,9 @@ class SimulateHelper:
                     "Failure Message": str(exp)
                 }
                 self.error_occured = True
+            
+        models = list(ModelManager.JitModels.keys())
+        ModelManager.setDefaults(models)
 
     def convertToNodeCollection(self):
         for ncp in ModelManager.NodeCollectionProxy:

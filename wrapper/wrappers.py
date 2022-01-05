@@ -166,22 +166,35 @@ class SetStatusWrapper(Wrapper):
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
-    def main_func(self, nodes, keys=None, output=""):
-        res = []
-        for node in nodes:
-            if node.jitNodeCollection:
-                if keys is None:
-                    res.append(node.jitNodeCollection.get())
-                else:
-                    res.append(node.jitNodeCollection.get(keys))
-
-            if node.nestNodeCollection:
-                res.extend(ModelManager.Nest.GetStatus(node.nestNodeCollection, keys))
-        return res
+    def main_func(self, nodes, params, val=None):
+        if isinstance(params, str):
+            nodes.set({params: val})
+        else:
+            nodes.set(params)
 
     @ staticmethod
     def getName():
         return "nest.SetStatus"
+
+
+class SetDefaultsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, model, params, val=None):
+        setFunc = None
+        if model in ModelManager.JitModels:
+            setFunc = ModelManager.JitModels[model].setDefaults
+        else:
+            setFunc = ModelManager.Nest.SetDefaults
+        if isinstance(params, str):
+            setFunc({params: val})
+        else:
+            setFunc(params)
+
+    @ staticmethod
+    def getName():
+        return "nest.SetDefaults"
 
 
 class GetDefaultsWrapper(Wrapper):

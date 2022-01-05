@@ -46,12 +46,15 @@ class ConnectHelper:
                     for alias in jitModel.alias:
                         newModel = ModelManager.JitModels[alias]
                         ModelManager.Nest.CopyModel(jitModel.name, newModel.name, newModel.default)
+        
             except Exception as exp:
                 self.reportErrors[module] = {
                     "phase": "Install",
                     "Failure Message": str(exp)
                 }
                 self.error_occured = True
+        models = modules
+        ModelManager.setDefaults(models)
 
     def convertToNodeCollection(self, node):
         if node.jitNodeCollection is not None:

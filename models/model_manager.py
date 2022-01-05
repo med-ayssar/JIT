@@ -41,6 +41,23 @@ class ModelManager():
         ModelManager.Nest = module
 
     @staticmethod
+    def getIds(model):
+        ids = []
+        for ncp in ModelManager.NodeCollectionProxy:
+            if ncp.jitNodeCollection:
+                for node in ncp.jitNodeCollection.nodes:
+                    if node.name == model:
+                        ids.extend(node.tolist())
+        return ids
+
+    @staticmethod
+    def setDefaults(models):
+        for model in models:
+            jitModel = ModelManager.JitModels[model]
+            if jitModel.hasChanged:
+                ModelManager.Nest.SetDefaults(model, jitModel.default)
+
+    @staticmethod
     def addJitModel(modelName, n, jitModel):
         ModelManager.JitModels[modelName] = jitModel
         pair = [ModelManager.Index, ModelManager.Index + n]
@@ -76,7 +93,6 @@ class ModelManager():
             modelIndexer.addRange(pair)
             ModelManager.ModelIndexer[modelName] = modelIndexer
         return pair
-
 
     @staticmethod
     def getRootOf(models):
