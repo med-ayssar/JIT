@@ -32,7 +32,7 @@ class CopyModel:
 
     def handleJitModel(self):
         oldModel = ModelManager.JitModels[self.oldModelName]
-        newModel = JitModel(name=self.newModelName, number=1, variables=copy.deepcopy(oldModel.default))
+        newModel = JitModel(name=self.newModelName, variables=copy.deepcopy(oldModel.default))
         newModel.root = self.oldModelName
         oldModel.alias.append(self.newModelName)
         if self.newDefault:
@@ -51,12 +51,12 @@ class CopyModel:
         # extract structural information from the model
         modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
         # create the JitModel holding the model strucutre
-        jitModel = JitModel(name=self.oldModelName, number=1, variables=modelDeclatedVars)
+        jitModel = JitModel(name=self.oldModelName, variables=modelDeclatedVars)
         # create the first JitNode referring to the JitModel instance
         ModelManager.JitModels[self.oldModelName] = jitModel
         self.handleJitModel()
 
-        ModelManager.add_module_to_install(self.modelHandle.moduleName, self.modelHandle.add_module_to_path)
+        ModelManager.add_module_to_install(self.modelHandle.neuron, self.modelHandle.add_module_to_path)
 
         createThread = JitThread(self.oldModelName, self.modelHandle.build)
         ModelManager.Threads.append(createThread)
@@ -64,7 +64,7 @@ class CopyModel:
         createThread.start()
 
 
-def Models(type="all", sel=None):
+def Models(mtype, sel=None):
     jitModels = list(ModelManager.JitModels.keys())
-    nestModels = ModelManager.Nest.Models()
-    return jitModels + nestModels
+    nestModels = ModelManager.Nest.Models(mtype, sel)
+    return jitModels + list(nestModels)

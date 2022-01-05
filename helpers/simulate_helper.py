@@ -34,8 +34,9 @@ class SimulateHelper:
             module = f"{model}module"
             try:
                 addLibToPath()
-                ModelManager.Nest.Install(module)
                 jitModel = ModelManager.JitModels[model]
+                ModelManager.Nest.Install(module)
+
                 if len(jitModel.alias) > 0:
                     for alias in jitModel.alias:
                         newModel = ModelManager.JitModels[alias]
@@ -46,7 +47,7 @@ class SimulateHelper:
                     "Failure Message": str(exp)
                 }
                 self.error_occured = True
-            
+
         models = list(ModelManager.JitModels.keys())
         ModelManager.setDefaults(models)
 

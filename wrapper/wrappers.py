@@ -5,7 +5,7 @@ import sys
 from loguru import logger
 from jit.helpers.create_helper import CreateHelper
 from jit.helpers.simulate_helper import SimulateHelper
-from jit.helpers.model_helper import CopyModel
+from jit.helpers.model_helper import CopyModel, Models
 from jit.models.model_manager import ModelManager
 
 
@@ -218,6 +218,19 @@ class GetDefaultsWrapper(Wrapper):
     @ staticmethod
     def getName():
         return "nest.GetDefaults"
+
+
+class ModelsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, mtype='all', sel=None):
+       return Models(mtype, sel)
+
+    @ staticmethod
+    def getName():
+        return "nest.Models"
+
 
 
 def installWrappers():
