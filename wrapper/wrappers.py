@@ -5,7 +5,7 @@ import sys
 from loguru import logger
 from jit.helpers.create_helper import CreateHelper
 from jit.helpers.simulate_helper import SimulateHelper
-from jit.helpers.model_helper import CopyModel, Models
+from jit.helpers.model_helper import CopyModel, models, printNodes
 from jit.models.model_manager import ModelManager
 
 
@@ -225,11 +225,24 @@ class ModelsWrapper(Wrapper):
         super().__init__(func, original_module, False, disable)
 
     def main_func(self, mtype='all', sel=None):
-       return Models(mtype, sel)
+       return models(mtype, sel)
 
     @ staticmethod
     def getName():
         return "nest.Models"
+
+
+class PrintNodesWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, True, disable)
+
+    def main_func(self, mtype='all', sel=None):
+        return printNodes()
+       
+
+    @ staticmethod
+    def getName():
+        return "nest.PrintNodes"
 
 
 
