@@ -6,27 +6,44 @@ from jinja2 import Environment, BaseLoader
 class JitModelParser:
     modelTemplate = """
     #include <cmath>
+    class {{name}} 
+    {   
+    {%- filter indent(1) %}
+        private:
+            {%- filter indent(2) %}
+                {{state}}
+                {{parameters}}
+            {%- endfilter %}
+        public:
+            {%- filter indent(2) %}
+                {%- for callable in callables %}
+                    {{callable}}
+                {%- endfor %}
 
-    {{state}}
+        inline {{name}} (): {%- if hasParam %}P_(){%- endif %}{%- if hasParam and hasState %},{%- endif %} {%- if hasState %} S_(){%- endif %}  
+            {
+                {{declarations}}
+            }
+            {%- endfilter %}
+        {%- endfilter %}
+    }
+    
 
-    {{parameters}}
+    
 
-    {% for callable in callables %}
-        {{callable}}
-    {% endfor %}
+   
 
-    {% for declaration in declarations %}
-        {{declaration}}
-    {% endfor %}
 
     """
 
     def __init__(self, node):
         self.name = node.get_name()
-        self.sateBlocks = node.get_state_blocks()
+        self.stateBlocks = node.get_state_blocks()
         self.paramBlocks = node.get_parameter_blocks()
+        hasParam = len(self.paramBlocks.declarations) > 0
+        hasState = len(self.stateBlocks.declarations) > 0
         self.printer = NestCppPrinter(node)
-        self.data = {}
+        self.data = {"name": self.name, "hasParam": hasParam, "hasState": hasState}
         self.setCallables()
         self.setStructs()
         self.setDeclarations()
@@ -38,7 +55,7 @@ class JitModelParser:
     def setCallables(self):
         # get all decalred fuctions
         callables = []
-        declared_functions = self.printer.print_functions(self.name)
+        declared_functions = self.printer.print_functions()
         callables.extend(declared_functions.values())
 
         # get all Getter/Setter for each block
@@ -54,13 +71,14 @@ class JitModelParser:
         self.data["parameters"] = paramStruct
 
     def setDeclarations(self):
-        decs = []
-        stateDecs = self.printer.print_declarations(self.sateBlocks)
-        decs.extend(stateDecs.values())
+        # decs = []
+        # stateDecs = self.printer.print_declarations(self.sateBlocks)
+        # decs.extend(stateDecs.values())
 
-        paramDecs = self.printer.print_declarations(self.paramBlocks)
-        decs.extend(paramDecs.values())
-
+        # paramDecs = self.printer.print_declarations(self.paramBlocks)
+        # decs.extend(paramDecs.values())
+        decs = self.printer.print_default_constructorBody()
+        print(decs)
         self.data["declarations"] = decs
 
     def toCPP(self, outputPath=None):
