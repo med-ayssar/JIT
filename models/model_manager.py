@@ -13,6 +13,7 @@ class ModelManager():
     Modules = dict()
     NodeCollectionProxy = []
     JitModels = {}
+    Synapses = {}
     ModelIndexer = {}
     Index = 0
     Nest = None

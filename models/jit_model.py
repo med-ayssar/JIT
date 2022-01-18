@@ -7,7 +7,7 @@ import copy
 
 
 class JitModel:
-    def __init__(self, name, variables, variations=None):
+    def __init__(self, name, variables, mtype="neuron", variations=None):
         self.name = name
         self.default = variables
         self.createParams = {}
@@ -15,6 +15,8 @@ class JitModel:
         self.alias = []
         self.hasChanged = False
         self.root = None
+        self.type = mtype
+        self.synapses = []
 
     def addNestIds(self, x, y):
         indexer = ModelManager.ModelIndexer[self.name]
@@ -80,7 +82,10 @@ class JitModel:
                         valuesOfK.append(self.default[k])
                 else:
                     valuesOfK.append(self.default[k])
-            res[k] = valuesOfK
+            if len(valuesOfK) == 1:
+                res[k] = valuesOfK[0]
+            else:
+                res[k] = valuesOfK
         return res
 
     def set(self, ids, collection):

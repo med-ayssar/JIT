@@ -6,14 +6,14 @@ import warnings
 
 
 class ModelQuery():
-    def __init__(self, neuron_name):
+    def __init__(self, neuron_name, mtype="neuron"):
         self.nestml_folders = NestConfig.get_nestml_path()
         self.libs = NestConfig.get_module_lib_path()
         self.neuron = neuron_name
+        self.type = mtype
 
     def find_model_in_nestml(self):
-        path, code = get_neuron(
-            self.neuron, self.nestml_folders)
+        path, code = get_neuron(self.neuron, self.nestml_folders, self.type)
         if path is not None:
             return ModelHandle(self.neuron, path, False, code)
         return None
@@ -38,7 +38,7 @@ class ModelQuery():
                             return ModelHandle(self.neuron, p, True)
         return None
 
-    def get_model_handle(self):
+    def getModelHandle(self):
         handle = self.find_model_in_lib()
         if handle is None:
             handle = self.find_model_in_nestml()
@@ -53,7 +53,7 @@ class ModelQuery():
 ###################################################################################
 
 
-def get_neurons_code(path_to_nestml):
+def get_neurons_code(path_to_nestml, mtype):
     if not os.path.isfile(path_to_nestml):
         raise FileNotFoundError(f"{path_to_nestml} doesn\'t exist")
     else:
@@ -63,7 +63,7 @@ def get_neurons_code(path_to_nestml):
             lines = nestml.readlines()
 
         # extract neurons name in the nestml file
-        pattern = r'neuron\s+\w+:'
+        pattern = r'{}'.format(f'{mtype}\s+\w+:') 
         expression = re.compile(pattern)
         found_models = list(filter(expression.match, lines))
         models_location = [lines.index(x) for x in found_models]
@@ -92,13 +92,13 @@ def get_neurons_code(path_to_nestml):
 
 
 @logger.catch
-def get_neuron(neuron_name, nestmls_path):
+def get_neuron(modelName, nestmls_path, mtype="neuron"):
     for path in nestmls_path:
         for file in os.listdir(path):
             nestml_file = os.path.join(path, file)
-            found = get_neurons_code(nestml_file)
-            if neuron_name in found:
-                return (nestml_file, found[neuron_name])
+            found = get_neurons_code(nestml_file, mtype)
+            if modelName in found:
+                return (nestml_file, found[modelName])
     return (None, None)
 
 

@@ -46,7 +46,16 @@ class ConnectHelper:
                     for alias in jitModel.alias:
                         newModel = ModelManager.JitModels[alias]
                         ModelManager.Nest.CopyModel(jitModel.name, newModel.name, newModel.default)
-        
+
+                if len(jitModel.synapses) > 0 :
+                    for synapse in jitModel.synapses:
+                        synapseModel = ModelManager.JitModels[synapse]
+                        if len(synapseModel.alias) > 0:
+                            for alias in synapseModel.alias:
+                                newModel = ModelManager.JitModels[alias]
+                                ModelManager.Nest.CopyModel(synapseModel.name, newModel.name, newModel.default)
+                        
+
             except Exception as exp:
                 self.reportErrors[module] = {
                     "phase": "Install",

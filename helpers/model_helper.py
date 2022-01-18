@@ -20,7 +20,7 @@ class CopyModel:
             # initiate search for the model
             model_query = ModelQuery(self.oldModelName)
             # create the model handle (nestml or lib)
-            self.modelHandle = model_query.get_model_handle()
+            self.modelHandle = model_query.getModelHandle()
             if self.modelHandle.is_lib:
                 self.handleExternLib()
             else:

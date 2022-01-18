@@ -16,9 +16,9 @@ class CreateWrapper(Wrapper):
         self.createHelper = None
         self.nodeCollectionProxy = None
 
-    def before(self, modelName, n=1, params=None, positions=None):
+    def before(self, modelName, n=1, params=None, positions=None, options=None):
         self.createHelper = CreateHelper(modelName)
-        self.nodeCollectionProxy = self.createHelper.Create(modelName, n, params, positions)
+        self.nodeCollectionProxy = self.createHelper.Create(modelName, n, params, positions, options)
         return (), {}
 
     def after(self, *args):
