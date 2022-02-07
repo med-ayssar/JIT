@@ -1,4 +1,5 @@
 import copy
+from email.policy import default
 from jit.interfaces.jit_interface import JitInterface
 from jit.models.model_manager import ModelManager
 from collections import defaultdict
@@ -7,9 +8,10 @@ import copy
 
 
 class JitModel:
-    def __init__(self, name, variables, mtype="neuron", variations=None):
+    def __init__(self, name, modelChecker,  mtype="neuron"):
         self.name = name
-        self.default = variables
+        self.modelchecker = modelChecker
+        self.default = self.extractDefaults()
         self.createParams = {}
         self.attributes = {}
         self.alias = []
@@ -108,6 +110,14 @@ class JitModel:
 
     def getKeys(self):
         return list(self.default.keys())
+
+    def extractDefaults(self):
+        modelVariables = self.modelchecker.declaredVarialbes
+        defaults = {}
+        for var in modelVariables:
+            funcName = f"get_{var}"
+            defaults[var] = getattr(self.modelchecker, funcName)()
+        return defaults
 
     def toString(self):
         return f"{self.__class__.__name__}(name={self.name})"

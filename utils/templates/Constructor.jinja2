@@ -1,0 +1,6 @@
+    {{name | upper}}({{ConstructorParams}}): {%- if hasParam %}P_(){%- endif %}{%- if hasParam and hasState %},{%- endif %} {%- if hasState %} S_(){%- endif %}  
+    {
+        {%- filter indent(2, True) -%}
+        {{body}}
+        {%- endfilter%}
+    }

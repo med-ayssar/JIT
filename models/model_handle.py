@@ -4,13 +4,12 @@ from numpy import exp
 from jit.utils.nest_config import NestConfig as config
 import os
 import platform
-from pynestml.frontend.pynestml_frontend import to_nest, install_nest, init_predefined
+from pynestml.frontend.pynestml_frontend import to_nest, install_nest, generate_code, frontend_configuration_setup, retrieve_models
 from jit.utils.create_report import CreateException, CreateState
 from pynestml.exceptions.generated_code_build_exception import GeneratedCodeBuildException
 from pynestml.utils.model_parser import ModelParser
 from pynestml.utils.logger import LoggingLevel, Logger
 from jit.utils.jit_model_parser import JitModelParser
-
 
 
 class ModelHandle():
@@ -23,7 +22,7 @@ class ModelHandle():
         self.stdoutPath = os.path.join(self.target, "output.txt")
         self.stderrPath = os.path.join(self.target, "error.txt")
         self.build_path = os.path.join(os.getcwd(), "build", self.neuron)
-        self.lib_path = os.path.join(self.build_path, "lib", "nest")
+        self.lib_path = os.path.join(self.build_path)
         self.isValid = False
         self.code = code
 
@@ -40,9 +39,11 @@ class ModelHandle():
         else:
             os.environ[lib_key] = self.lib_path
 
-    def _generate_code(self, options=None):
+    def _generate_code(self):
         try:
-            to_nest(input_path=self.path, target_path=self.target, module_name=self.moduleName, codegen_opts=options)
+            hasErrors = generate_code(codeGenerator=self.codeGenerator, neurons=self.neurons, synapses=self.synapses)
+            if hasErrors:
+                raise Exception("Error(s) occurred while generating code")
         except Exception as exp:
             state = CreateState()
             state.setGenerationState(False)
@@ -70,9 +71,9 @@ class ModelHandle():
             msg = str(exp)
             raise CreateException(state, msg)
 
-    def build(self, options=None):
+    def build(self):
         if not self.is_lib:
-            self._generate_code(options)
+            self._generate_code()
             self._build()
         else:
             self.add_module_to_path()
@@ -86,45 +87,27 @@ class ModelHandle():
     def add_params(self, funcName, args):
         self.params[funcName] = args
 
-    def getModelDeclaredVariables(self, mtype="neuron"):
-        init_predefined()
-        Logger.init_logger(LoggingLevel.INFO)
-        parser = ModelParser.parse_neuron
-        if mtype == "synapse":
-            parser = ModelParser.parse_synapse
-        astNeuron = parser(self.code)
-        printer = JitModelParser(astNeuron)
-        printer.toCPP()
-        declaredVariables = {}
-        #declaredVariables.update(self.__extractVariables(astNeuron.get_state_blocks))
-        #declaredVariables.update(self.__extractVariables(astNeuron.get_parameter_blocks))
-        return declaredVariables
+    def processModels(self, options=None):
+        frontend_configuration_setup(input_path=self.path, target_path=self.target,
+                                     module_name=self.moduleName, codegen_opts=options)
+        neurons, synapses, codeGenerator = retrieve_models()
+        self.codeGenerator = codeGenerator
+        self.neurons = neurons
+        self.synapses = synapses
 
-    def __extractVariables(self, modelBlockFunc):
-        blocks = modelBlockFunc()
-        variables = {}
-        if blocks:
-            if not isinstance(blocks, list):
-                blocks = [blocks]
-            for stateBlock in blocks:
-                for dec in stateBlock.get_declarations():
-                    for variable in dec.get_variables():
-                        expression = dec.get_expression()
-                        if expression.__class__.__name__ == "ASTSimpleExpression":
-                            if expression.is_numeric_literal():
-                                variables[variable.get_name()] = expression.get_numeric_literal()
-                            elif expression.is_function_call():
-                                raise NotImplemented("function call")
-                            elif expression.is_inf_literal:
-                                variables[variable.get_name()] = "inf"
-                            else:
-                                variables[variable.get_name()] = expression.get_boolean_literal()
-                        elif hasattr(expression, "unary_operator") and expression.unary_operator.is_unary_minus:
-                            literal = - expression.expression.get_numeric_literal()
-                            variables[variable.get_name()] = literal
-                        elif expression is None:
-                            pass
-                        else:
-                            raise RuntimeError("ModelHandle doesn't know how to handle this case")
+    def getModels(self, mtype="neuron"):
+        models = []
+        for model in self.neurons + self.synapses:
+            modelInstnace = JitModelParser(model, self.codeGenerator)
+            models.append(modelInstnace.getPyInstance())
+        return models
 
-        return variables
+
+    def getModelHandleForNeuronWithSynapse(self, neuron, synapse):
+        neurons, synapses = self.codeGenerator.transform([neuron], [synapse])
+        neuronWithSynapse = neurons[0] if neurons[0] != neuron else neurons[1]
+        modelHanlde = ModelHandle(neuronWithSynapse.get_name(), None)
+        modelHanlde.neurons = neuronWithSynapse
+        modelHanlde.synapses = []
+        modelHanlde.codeGenerator = self.codeGenerator
+        return modelHanlde

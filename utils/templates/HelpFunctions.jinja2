@@ -1,0 +1,10 @@
+ static std::vector<std::string> get_constructor_args()
+    {
+    {% filter indent(2, True) -%}
+        std::vector<std::string> args{ {{args}} };
+    {%- endfilter%}
+    {% filter indent(2, True) -%}
+        return args;
+     {%- endfilter %}
+    
+    }

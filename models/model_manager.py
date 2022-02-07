@@ -14,6 +14,7 @@ class ModelManager():
     NodeCollectionProxy = []
     JitModels = {}
     Synapses = {}
+    ParsedModels = []
     ModelIndexer = {}
     Index = 0
     Nest = None
@@ -99,11 +100,12 @@ class ModelManager():
     def getRootOf(models):
         roots = set()
         for model in models:
-            jitModel = ModelManager.JitModels[model]
-            if len(jitModel.alias) == 0:
-                roots.add(model)
-            elif jitModel.root:
-                roots.append(jitModel.root)
+            jitModel = ModelManager.JitModels.get(model, None)
+            if jitModel:
+                if jitModel.root:
+                    roots.add(jitModel.root)
+                elif len(jitModel.alias) == 0:
+                    roots.append(jitModel)
         return roots
 
     @staticmethod

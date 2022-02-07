@@ -43,6 +43,10 @@ class ConnectWrapper(Wrapper):
         sourceModelName = set(pre.get()["models"]) if pre.hasJitNodeCollection() else set()
         targetModelName = set(post.get()["models"]) if post.hasJitNodeCollection() else set()
         models = sourceModelName.union(targetModelName)
+
+        synapseName = syn_spec.get("synapse_model", None)
+        if synapseName:
+            models.add(synapseName)
         # wait for all threads to finish
         rootModels = ModelManager.getRootOf(models)
         self.connectionHelper.waitForThreads(rootModels)
@@ -190,7 +194,7 @@ class SetDefaultsWrapper(Wrapper):
         if isinstance(params, str):
             setFunc({params: val})
         else:
-            setFunc(params)
+            setFunc(model, params)
 
     @ staticmethod
     def getName():
@@ -225,7 +229,7 @@ class ModelsWrapper(Wrapper):
         super().__init__(func, original_module, False, disable)
 
     def main_func(self, mtype='all', sel=None):
-       return models(mtype, sel)
+        return models(mtype, sel)
 
     @ staticmethod
     def getName():
@@ -238,11 +242,26 @@ class PrintNodesWrapper(Wrapper):
 
     def main_func(self, mtype='all', sel=None):
         return printNodes()
-       
 
     @ staticmethod
     def getName():
         return "nest.PrintNodes"
+
+class GetConnectionsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def before(self, source=None, target=None, synapse_model=None, synapse_label=None):
+        if source:
+            source = source.nestNodeCollection
+        if target:
+            target = target.nestNodeCollection
+        return (source, target, synapse_model, synapse_label), {}
+
+
+    @ staticmethod
+    def getName():
+        return "nest.GetConnections"
 
 
 
