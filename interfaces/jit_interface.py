@@ -94,8 +94,8 @@ class JitInterface():
             toMerge["models"] = models
         if len(toMerge.keys()) == 1:
             values = toMerge[list(toMerge.keys())[0]]
-            if len(values) == 1:
-                return values[0]
+            #if len(values) == 1:
+            #    return values[0]
         if len(args) == 1:
             return toMerge[args[0]]
         return toMerge

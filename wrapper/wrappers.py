@@ -40,21 +40,31 @@ class ConnectWrapper(Wrapper):
     def before(self, pre, post, conn_spec=None, syn_spec=None, return_synapsecollection=False):
         # reset the SimulateHelper
         self.connectionHelper.reset()
+        models = set()
+        postNodes = None
+        synapseName = syn_spec.get("synapse_model", None)
+        if synapseName and synapseName in ModelManager.ExternalModels:
+            postNodes, synapseName = self.connectionHelper.convertPostNeuron(post, synapseName)
+            models.add(synapseName)
+
         sourceModelName = set(pre.get()["models"]) if pre.hasJitNodeCollection() else set()
         targetModelName = set(post.get()["models"]) if post.hasJitNodeCollection() else set()
-        models = sourceModelName.union(targetModelName)
+        neuronModels_ = sourceModelName.union(targetModelName)
+        models = neuronModels_.union(models)
 
-        synapseName = syn_spec.get("synapse_model", None)
-        if synapseName:
-            models.add(synapseName)
         # wait for all threads to finish
         rootModels = ModelManager.getRootOf(models)
         self.connectionHelper.waitForThreads(rootModels)
+
         # install all new modules
         self.connectionHelper.installModules(rootModels)
         # convert all JitNodeCollections to NodeCollections
         self.connectionHelper.convertToNodeCollection(pre)
-        self.connectionHelper.convertToNodeCollection(post)
+        if postNodes:
+            post.nestNodeCollection = postNodes
+            post.jitNodeCollection = None
+        else:
+            self.connectionHelper.convertToNodeCollection(post)
 
         # print report summary
         self.connectionHelper.showReport()
@@ -120,6 +130,7 @@ class NodeCollectionWrapper(Wrapper):
         super().__init__(clz, original_module, isMethode, disable)
         self.nodeCollection = clz
         setattr(clz, "__hash__", lambda nc: hash(nc._datum))
+        setattr(clz, "__deepcopy__", lambda self, memo: self)
 
     def main_func(self, data=None):
         return NodeCollectionHelper().createNodeCollectionProxy(data)
@@ -247,6 +258,7 @@ class PrintNodesWrapper(Wrapper):
     def getName():
         return "nest.PrintNodes"
 
+
 class GetConnectionsWrapper(Wrapper):
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
@@ -258,11 +270,9 @@ class GetConnectionsWrapper(Wrapper):
             target = target.nestNodeCollection
         return (source, target, synapse_model, synapse_label), {}
 
-
     @ staticmethod
     def getName():
         return "nest.GetConnections"
-
 
 
 def installWrappers():

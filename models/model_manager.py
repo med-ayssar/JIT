@@ -14,8 +14,9 @@ class ModelManager():
     NodeCollectionProxy = []
     JitModels = {}
     Synapses = {}
-    ParsedModels = []
+    ExternalModels = []
     ModelIndexer = {}
+    ParsedModels = {}
     Index = 0
     Nest = None
 
@@ -104,8 +105,8 @@ class ModelManager():
             if jitModel:
                 if jitModel.root:
                     roots.add(jitModel.root)
-                elif len(jitModel.alias) == 0:
-                    roots.append(jitModel)
+                else:
+                    roots.add(jitModel.name)
         return roots
 
     @staticmethod
@@ -145,3 +146,12 @@ class ModelManager():
             else:
                 nodes.append(newNodes)
         return nodes
+
+    @staticmethod
+    def copyModels(names):
+        for modelName in names:
+            jitModel = ModelManager.JitModels[modelName]
+            if len(jitModel.alias) > 0:
+                for alias in jitModel.alias:
+                    newModel = ModelManager.JitModels[alias]
+                    ModelManager.Nest.CopyModel(jitModel.name, newModel.name, newModel.getValues())

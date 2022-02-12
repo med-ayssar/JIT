@@ -19,6 +19,9 @@ class CopyModel:
         else:
             # initiate search for the model
             model_query = ModelQuery(self.oldModelName)
+            ModelManager.ExternalModels.append(self.oldModelName)
+            ModelManager.ExternalModels.append(self.newModelName)
+
             # create the model handle (nestml or lib)
             self.modelHandle = model_query.getModelHandle()
             if self.modelHandle.is_lib:
@@ -28,14 +31,12 @@ class CopyModel:
 
     def handleBuiltIn(self):
         ModelManager.Nest.CopyModel(
-            self.oldModelName, self.newModelName, self.newDefault
-        )
+            self.oldModelName, self.newModelName, self.newDefault)
 
     def handleJitModel(self):
         oldModel = ModelManager.JitModels[self.oldModelName]
-        newModel = JitModel(
-            name=self.newModelName, variables=copy.deepcopy(oldModel.default)
-        )
+        newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker, astModel=oldModel.astModel)
+
         newModel.root = self.oldModelName
         oldModel.alias.append(self.newModelName)
         if self.newDefault:
@@ -52,21 +53,27 @@ class CopyModel:
 
     def handleNestml(self):
         # extract structural information from the model
-        modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
-        # create the JitModel holding the model strucutre
-        jitModel = JitModel(name=self.oldModelName, variables=modelDeclatedVars)
-        # create the first JitNode referring to the JitModel instance
-        ModelManager.JitModels[self.oldModelName] = jitModel
+
+        self.modelHandle.processModels(None)
+        models = self.modelHandle.getModels()
+        self.registerModels(models)
         self.handleJitModel()
+        if models[0].type== "neuron":
+            ModelManager.add_module_to_install(self.modelHandle.neuron, self.modelHandle.add_module_to_path)
 
-        ModelManager.add_module_to_install(
-            self.modelHandle.neuron, self.modelHandle.add_module_to_path
-        )
+            createThread = JitThread([self.oldModelName], self.modelHandle.build)
+            ModelManager.Threads.append(createThread)
+            # start thread
+            createThread.start()
 
-        createThread = JitThread(self.oldModelName, self.modelHandle.build)
-        ModelManager.Threads.append(createThread)
-        # start thread
-        createThread.start()
+    def registerModels(self, models):
+        for model in models:
+            name = model.name
+            modelChecker = model
+            mtype = model.type
+            astModel = self.modelHandle.neurons[0] if mtype == "neuron" else self.modelHandle.synapses[0]
+            jitModel = JitModel(name=name, modelChecker=modelChecker, astModel=astModel, mtype=mtype)
+            ModelManager.JitModels[name] = jitModel
 
 
 def models(mtype, sel=None):

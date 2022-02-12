@@ -8,7 +8,7 @@ import copy
 
 
 class JitModel:
-    def __init__(self, name, modelChecker,  mtype="neuron"):
+    def __init__(self, name, modelChecker, astModel=None, mtype="neuron"):
         self.name = name
         self.modelchecker = modelChecker
         self.default = self.extractDefaults()
@@ -19,6 +19,23 @@ class JitModel:
         self.root = None
         self.type = mtype
         self.synapses = []
+        self.astModel = astModel
+        self.stateKeys = []
+
+    def setStates(self, keys):
+        if isinstance(keys, list):
+            self.stateKeys.extend(keys)
+        elif isinstance(keys, str):
+            self.stateKeys.append(keys)
+        else:
+            raise TypeError("keys must either list or str")
+
+    def getValues(self):
+        import copy
+        values = copy.deepcopy(self.default)
+        for state in self.stateKeys:
+            values.pop(state, None)
+        return values
 
     def addNestIds(self, x, y):
         indexer = ModelManager.ModelIndexer[self.name]

@@ -10,6 +10,7 @@ class NodeCollectionProxy(JitInterface):
         if virtualIds is None:
             virtualIds = []
         self.virtualIds = virtualIds
+        self.synapseName = None
 
     def getChildren(self):
         children = []
@@ -90,6 +91,8 @@ class NodeCollectionProxy(JitInterface):
                 raise ValueError(f"{self.__class__.__name__}.{name} accepts only a NodeCollection instance")
         elif name == "virtualIds":
             self.__dict__["virtualIds"] = value
+        elif name =="synapseName":
+            self.__dict__["synapseName"] = value
         else:
             raise KeyError(f"{self.__class__.__name__} doesn't have {name} as attribute")
 

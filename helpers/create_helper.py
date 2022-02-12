@@ -26,7 +26,7 @@ class CreateHelper:
                 self.handleExternalLib(modelName, n, params, positions)
             # else if the model is only available as nestml object
             else:
-                self.handleNestml(modelName, n, params, positions, options)
+                self.handleNestml(modelName, n, params, positions)
         return self.nodeCollectionProxy
 
     def handleBuiltIn(self, modelName, n=1, params=None, positions=None):
@@ -57,34 +57,28 @@ class CreateHelper:
 
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
-    def handleNestml(self, modelName, n=1, params=None, positions=None, options=None):
-        synapses = []
-        if options and "neuron_synapse_pairs" in options:
-            synapses = self.__handleSynapses(options)
-        # extract structural information from the model
-        modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
-        # create the JitModel holding the model strucutre
-        jitModel = JitModel(name=modelName, variables=modelDeclatedVars)
-        jitModel.synapses = synapses
-        # store the additional parameters in the Jitmodel instance
-        n, dic = self.getParams(modelName, n, params, positions)
-        jitModel.setCreateParams(**dic)
-        # create the first JitNode referring to the JitModel instance
-        first, last = ModelManager.addJitModel(modelName, n, jitModel)
-        initialJitNode = JitNode(name=modelName, first=first, last=last)
-        # create instance of the JitNodeCollection
-        jitNodeCollection = JitNodeCollection(initialJitNode, isNotInitial=False)
-        if positions:
-            jitNodeCollection.setSpatial(positions)
-        # store the JitNodeCollection in the Proxy
-        self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
-        # set Ids range
-        self.nodeCollectionProxy.virtualIds.append(range(first, last))
+    def handleNestml(self, modelName, n=1, params=None, positions=None):
 
-        ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
+        ModelManager.ExternalModels.append(modelName)
+        self.modelHandle.processModels(None)
+        model = self.modelHandle.getModels()[0]
+        
+        givenKeys = set(params.keys())
+        expectedKeys = set(model.declaredVarialbes)
+        result = givenKeys.difference(expectedKeys)
+        if len(result) > 0:
+            wrongKeys = ",".join(result)
+            raise KeyError (f"{modelName} doesn't have {wrongKeys} as paramaters or states")
+
+
+        self.registerModels([model])
+
+        self.handleJitModel(modelName, n, params, positions)
+
+        
         ModelManager.add_module_to_install(self.modelHandle.neuron, self.modelHandle.add_module_to_path)
 
-        createThread = JitThread(modelName, self.modelHandle.build, options)
+        createThread = JitThread([model.name], self.modelHandle.build)
         ModelManager.Threads.append(createThread)
         # start thread
         createThread.start()
@@ -99,6 +93,7 @@ class CreateHelper:
         if positions:
             jitNodeCollection.setSpatial(positions)
         self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
+        self.nodeCollectionProxy.set(**params)
         # set Ids range
         self.nodeCollectionProxy.virtualIds.append(range(first, last))
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
@@ -111,29 +106,14 @@ class CreateHelper:
         size = n if positions is None else numpy.prod(positions.shape)
         return size, {"model": model, "params": params, key: positionsXorN}
 
-    def __handleSynapses(self, options):
-        synapses = self.__findSynapses(options["neuron_synapse_pairs"])
-        synapsesHandle = list(
-            map(lambda synapse: ModelQuery(synapse, "synapse").getModelHandle(), synapses)
-        )
-        synapsesCode = "\n".join(list(map(lambda handle: handle.code, synapsesHandle)))
-        self.modelHandle.code += "\n" + synapsesCode
-        inputPath = f"./nestml/{self.modelHandle.neuron}.nestml"
-        self.modelHandle.path = inputPath
-        with open(inputPath, "w+") as nestml:
-            nestml.write(self.modelHandle.code)
-        self.__registerSynapses(synapsesHandle)
-        return synapses
+  
+   
 
-    def __findSynapses(self, pairs):
-        names = []
-        for pair in pairs:
-            names.append(pair["synapse"])
-        return names
-
-    def __registerSynapses(self, synapsesHandle):
-        for handle in synapsesHandle:
-            modelDeclatedVars = handle.getModelDeclaredVariables("synapse")
-            modelName = handle.neuron
-            jitModel = JitModel(name=modelName, variables=modelDeclatedVars, mtype="synapse")
-            ModelManager.JitModels[modelName] = jitModel
+    def registerModels(self, models):
+        for model in models:
+            name = model.name
+            modelChecker = model
+            mtype = model.type
+            astModel = self.modelHandle.neurons[0] if mtype == "neuron" else self.modelHandle.synapse[0]
+            jitModel = JitModel(name=name, modelChecker=modelChecker, astModel=astModel, mtype=mtype)
+            ModelManager.JitModels[name] = jitModel
