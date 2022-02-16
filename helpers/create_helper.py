@@ -19,6 +19,7 @@ class CreateHelper:
             self.handleBuiltIn(modelName, n, params, positions)
         # else if the model is an external lib, but not yet installed
         else:
+            ModelManager.ExternalModels.append(modelName)
             model_query = ModelQuery(modelName)
             # create the model handle (nestml or lib)
             self.modelHandle = model_query.getModelHandle()
@@ -43,6 +44,7 @@ class CreateHelper:
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleExternalLib(self, modelName, n=1, params=None, positions=None):
+        self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # add module to path
         self.modelHandle.add_module_to_path()
         # install the module

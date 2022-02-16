@@ -8,7 +8,7 @@ import copy
 
 
 class JitModel:
-    def __init__(self, name, modelChecker, astModel=None, mtype="neuron"):
+    def __init__(self, name, modelChecker=None, astModel=None, mtype="neuron"):
         self.name = name
         self.modelchecker = modelChecker
         self.default = self.extractDefaults()
@@ -29,6 +29,9 @@ class JitModel:
             self.stateKeys.append(keys)
         else:
             raise TypeError("keys must either list or str")
+
+    def isFromNestml(self):
+        return self.modelchecker != None
 
     def getValues(self):
         import copy
@@ -129,12 +132,14 @@ class JitModel:
         return list(self.default.keys())
 
     def extractDefaults(self):
-        modelVariables = self.modelchecker.declaredVarialbes
-        defaults = {}
-        for var in modelVariables:
-            funcName = f"get_{var}"
-            defaults[var] = getattr(self.modelchecker, funcName)()
-        return defaults
+        if self.modelchecker:
+            modelVariables = self.modelchecker.declaredVarialbes
+            defaults = {}
+            for var in modelVariables:
+                funcName = f"get_{var}"
+                defaults[var] = getattr(self.modelchecker, funcName)()
+            return defaults
+        return {}
 
     def toString(self):
         return f"{self.__class__.__name__}(name={self.name})"

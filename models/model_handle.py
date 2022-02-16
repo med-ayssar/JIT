@@ -17,12 +17,13 @@ class ModelHandle():
     def __init__(self, name, model_path=None, is_lib=False, code=None):
         self.neuron = name
         self.moduleName = f"{self.neuron}module"
+
         self.is_lib = is_lib
         self.target = os.path.join("/tmp", "nestml", "generated", self.neuron)
         self.path = os.path.join(self.target, f"{self.neuron}.nestml") if model_path is None else model_path
         self.stdoutPath = os.path.join(self.target, "output.txt")
         self.stderrPath = os.path.join(self.target, "error.txt")
-        self.build_path = os.path.join(os.getcwd(), "build", self.neuron)
+        self.build_path = os.path.join(os.getcwd(), "build")
         self.lib_path = os.path.join(self.build_path)
         self.isValid = False
         self.code = code
@@ -56,10 +57,10 @@ class ModelHandle():
             # pre-condition of install_nest function
             if not os.path.exists(self.build_path):
                 os.makedirs(self.build_path)
-            
+
             if not os.path.exists(self.target):
                 os.makedirs(self.target)
-            
+
             stdout = open(self.stdoutPath, "w")
             stderr = open(self.stderrPath, "w")
             install_nest(self.target, config.nest_prefix, self.build_path, stderr=stderr, stdout=stdout)
