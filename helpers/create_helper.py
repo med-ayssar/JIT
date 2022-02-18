@@ -44,6 +44,11 @@ class CreateHelper:
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleExternalLib(self, modelName, n=1, params=None, positions=None):
+        jitModel = JitModel(name=modelName)
+        ModelManager.JitModels[modelName] = jitModel
+        n, dic = self.getParams(modelName, n, params, positions)
+        jitModel.setCreateParams(**dic)
+
         self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # add module to path
         self.modelHandle.add_module_to_path()
@@ -64,20 +69,18 @@ class CreateHelper:
         ModelManager.ExternalModels.append(modelName)
         self.modelHandle.processModels(None)
         model = self.modelHandle.getModels()[0]
-        
-        givenKeys = set(params.keys())
+
+        givenKeys = set(params.keys()) if params else set()
         expectedKeys = set(model.declaredVarialbes)
         result = givenKeys.difference(expectedKeys)
         if len(result) > 0:
             wrongKeys = ",".join(result)
-            raise KeyError (f"{modelName} doesn't have {wrongKeys} as paramaters or states")
-
+            raise KeyError(f"{modelName} doesn't have {wrongKeys} as paramaters or states")
 
         self.registerModels([model])
 
         self.handleJitModel(modelName, n, params, positions)
 
-        
         ModelManager.add_module_to_install(self.modelHandle.neuron, self.modelHandle.add_module_to_path)
 
         createThread = JitThread([model.name], self.modelHandle.build)
@@ -95,7 +98,8 @@ class CreateHelper:
         if positions:
             jitNodeCollection.setSpatial(positions)
         self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
-        self.nodeCollectionProxy.set(**params)
+        if params:
+            self.nodeCollectionProxy.set(**params)
         # set Ids range
         self.nodeCollectionProxy.virtualIds.append(range(first, last))
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
@@ -107,9 +111,6 @@ class CreateHelper:
 
         size = n if positions is None else numpy.prod(positions.shape)
         return size, {"model": model, "params": params, key: positionsXorN}
-
-  
-   
 
     def registerModels(self, models):
         for model in models:

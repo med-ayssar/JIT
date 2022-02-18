@@ -4,11 +4,10 @@ from jit.utils.nest_config import NestConfig as config
 import os
 import platform
 from jit.models.model_manager import ModelManager
-from pynestml.frontend.pynestml_frontend import to_nest, install_nest, generate_code, frontend_configuration_setup, retrieve_models, process_nestml_files
+from pynestml.frontend.pynestml_frontend import generate_code, frontend_configuration_setup, process_nestml_files, code_generator_from_target_name, builder_from_target_name
 from jit.utils.create_report import CreateException, CreateState
 from pynestml.exceptions.generated_code_build_exception import GeneratedCodeBuildException
 from jit.utils.jit_model_parser import JitModelParser
-from pynestml.codegeneration.codegenerator import CodeGenerator
 from pynestml.frontend.frontend_configuration import FrontendConfiguration
 from copy import deepcopy
 
@@ -27,6 +26,7 @@ class ModelHandle():
         self.lib_path = os.path.join(self.build_path)
         self.isValid = False
         self.code = code
+        self.options = None
 
     def add_module_to_path(self):
         system = platform.system()
@@ -63,7 +63,9 @@ class ModelHandle():
 
             stdout = open(self.stdoutPath, "w")
             stderr = open(self.stderrPath, "w")
-            install_nest(self.target, config.nest_prefix, self.build_path, stderr=stderr, stdout=stdout)
+            builder = builder_from_target_name(FrontendConfiguration.get_target_platform(),
+                                               options=self.options)
+            builder.build(stderr=stderr, stdout=stdout)
 
             stdout.close()
             stderr.close()
@@ -84,18 +86,12 @@ class ModelHandle():
         else:
             self.add_module_to_path()
 
-    def get_nest_instance(self):
-        pass
-
-    def get_neuron(self):
-        return ["todo: implement proxy"]
-
     def add_params(self, funcName, args):
         self.params[funcName] = args
 
     def processModels(self, options=None):
         frontend_configuration_setup(input_path=self.path, target_path=self.target,
-                                     module_name=self.moduleName, codegen_opts=options)
+                                     module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
 
         neuronsAst, synapsesAst, errors_occurred = process_nestml_files()
         if errors_occurred:
@@ -105,12 +101,13 @@ class ModelHandle():
             name = model.get_name()
             ModelManager.ParsedModels[name] = model
 
-        codeGenerator = CodeGenerator.from_target_name(FrontendConfiguration.get_target(),
-                                                       options=FrontendConfiguration.get_codegen_opts())
+        codeGenerator = code_generator_from_target_name(FrontendConfiguration.get_target_platform(),
+                                                        options=FrontendConfiguration.get_codegen_opts())
         neurons = [n.clone() for n in neuronsAst]
         synapses = [s.clone() for s in synapsesAst]
         neurons, synapses = codeGenerator.transform(neurons, synapses)
 
+        self.option = options
         self.codeGenerator = codeGenerator
         self.neurons = neurons
         self.synapses = synapses

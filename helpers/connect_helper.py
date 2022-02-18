@@ -103,14 +103,14 @@ class ConnectHelper:
                 synapseAst = ModelManager.ParsedModels[synapse]
 
                 codeGenerationOpt = ModelHandle.getCodeGenerationOptions(neuronAst, synapseAst)
-                codeGenerator = ModelHandle.getCodeGenerator(codeGenerationOpt)
+                codeGenerator = ModelHandle.getCodeGenerator(codeGenerationOpt) 
                 neurons, synapse = codeGenerator.transform([neuronAst], [synapseAst])
 
                 neuron = neurons[1]
                 kwargs["model"] = neuron.get_name()
                 modelHandle = ModelHandle(neuron.get_name(), nestmlPath)
                 modelHandle.initNestmlFrontEnd(codeGenerationOpt)
-                modelHandle.neurons = [neuron]
+                modelHandle.neurons = neurons
                 modelHandle.synapses = synapse
                 modelHandle.codeGenerator = codeGenerator
                 modelHandle.build()
@@ -141,6 +141,7 @@ class ConnectHelper:
 
                 newNodeCollection.set(ncpDic)
                 return newNodeCollection, newSynapseName
+        return None, None
 
     def __setSynapsesKeys(self, synapses, keys):
 
