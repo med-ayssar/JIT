@@ -63,8 +63,7 @@ class ModelHandle():
 
             stdout = open(self.stdoutPath, "w")
             stderr = open(self.stderrPath, "w")
-            builder = builder_from_target_name(FrontendConfiguration.get_target_platform(),
-                                               options=self.options)
+            builder = builder_from_target_name(FrontendConfiguration.get_target_platform(), options=self.options)
             builder.build(stderr=stderr, stdout=stdout)
 
             stdout.close()
@@ -90,8 +89,8 @@ class ModelHandle():
         self.params[funcName] = args
 
     def processModels(self, options=None):
-        frontend_configuration_setup(input_path=self.path, target_path=self.target,
-                                     module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
+
+        self.setupFrontEnd(options)
 
         neuronsAst, synapsesAst, errors_occurred = process_nestml_files()
         if errors_occurred:
@@ -107,10 +106,15 @@ class ModelHandle():
         synapses = [s.clone() for s in synapsesAst]
         neurons, synapses = codeGenerator.transform(neurons, synapses)
 
-        self.option = options
+        self.options = options
         self.codeGenerator = codeGenerator
         self.neurons = neurons
         self.synapses = synapses
+
+    def setupFrontEnd(self, options):
+        frontend_configuration_setup(input_path=self.path, target_path=self.target,  install_path=self.build_path,
+                                     module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
+        self.options = options
 
     def getModels(self, mtype="neuron"):
         models = []
@@ -121,8 +125,8 @@ class ModelHandle():
 
     @staticmethod
     def getCodeGenerator(options):
-        from pynestml.codegeneration.codegenerator import CodeGenerator
-        return CodeGenerator.from_target_name("NEST", options=options)
+        return code_generator_from_target_name(FrontendConfiguration.get_target_platform(),
+                                               options=options)
 
     @staticmethod
     def getCodeGenerationOptions(neuron, synapse):
@@ -136,7 +140,3 @@ class ModelHandle():
 
         }
         return codegenOpts
-
-    def initNestmlFrontEnd(self, options=None):
-        frontend_configuration_setup(input_path=self.path, target_path=self.target,
-                                     module_name=self.moduleName, codegen_opts=options)

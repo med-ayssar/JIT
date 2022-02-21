@@ -18,9 +18,8 @@ class JitModel:
         self.hasChanged = False
         self.root = None
         self.type = mtype
-        self.synapses = []
         self.astModel = astModel
-        self.stateKeys = []
+        self.stateKeys = ["synapse_model"] if mtype == "synapse" else []
 
     def setStates(self, keys):
         if isinstance(keys, list):

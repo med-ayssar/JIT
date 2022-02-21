@@ -71,7 +71,7 @@ class CopyModel:
 
     def handleJitModel(self):
         oldModel = ModelManager.JitModels[self.oldModelName]
-        newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker, astModel=oldModel.astModel)
+        newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker, astModel=oldModel.astModel, mtype=oldModel.type)
 
         newModel.root = self.oldModelName
         oldModel.alias.append(self.newModelName)
