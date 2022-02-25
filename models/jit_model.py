@@ -136,7 +136,10 @@ class JitModel:
             defaults = {}
             for var in modelVariables:
                 funcName = f"get_{var}"
-                defaults[var] = getattr(self.modelchecker, funcName)()
+                value = getattr(self.modelchecker, funcName)()
+                if value.__class__.__name__ == "string":
+                    value = str(value)
+                defaults[var] = value
             return defaults
         return {}
 

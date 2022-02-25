@@ -71,7 +71,8 @@ class CopyModel:
 
     def handleJitModel(self):
         oldModel = ModelManager.JitModels[self.oldModelName]
-        newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker, astModel=oldModel.astModel, mtype=oldModel.type)
+        newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker,
+                            astModel=oldModel.astModel, mtype=oldModel.type)
 
         newModel.root = self.oldModelName
         oldModel.alias.append(self.newModelName)
@@ -85,8 +86,10 @@ class CopyModel:
         # install the module
         ModelManager.Nest.Install(self.modelHandle.moduleName)
 
-        jitModel = JitModel(name=self.oldModelName)
-        jitModel.default=ModelManager.Nest.GetDefaults(self.modelHandle.neuron)
+        defaults = ModelManager.Nest.GetDefaults(self.modelHandle.neuron)
+        mtype = "synapse" if "num_connections" in defaults else "neuron"
+        jitModel = JitModel(name=self.oldModelName, mtype=mtype)
+        jitModel.default = defaults
         ModelManager.JitModels[self.oldModelName] = jitModel
         self.handleJitModel()
         # rest like handleBuitIn

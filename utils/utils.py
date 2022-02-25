@@ -1,3 +1,6 @@
+from jit.models.model_manager import ModelManager
+
+
 def setSynapsesKeys(synapses, keys):
     for ncKey, synapseKey in keys.items():
         for synapse in synapses:
@@ -17,7 +20,9 @@ def getCommonItemsKeys(nodeCollectionKeys, synapseName):
 def updateNodeCollectionWithSynapseItems(nc, synapseItems, keys):
     toSet = {}
     for ncKey, synapseKey in keys.items():
-        toSet[ncKey] = synapseItems[synapseKey]
+        newValue = synapseItems.get(synapseKey, None)
+        if newValue:
+            toSet[ncKey] = newValue
 
     nc.set(**toSet)
 
@@ -43,7 +48,6 @@ def cleanDictionary(dic, toKeep):
 
 
 def handleNestmlNestml(postNeuron, synapseName):
-    from jit.models.model_manager import ModelManager
     from jit.models.model_handle import ModelHandle
 
     postNeuronValues = postNeuron.get()
@@ -70,7 +74,7 @@ def handleNestmlNestml(postNeuron, synapseName):
     newNeuronName = f"{rootNeuron}__with_{rootSynapse}"
     newSynapseName = f"{rootSynapse}__with_{rootNeuron}"
 
-    # nust clone instead
+    # mnust clone instead
     ModelManager.JitModels[newSynapseName] = ModelManager.JitModels[rootSynapse]
     newSynapse = ModelManager.JitModels[newSynapseName]
     newSynapse.name = newSynapseName
@@ -101,7 +105,7 @@ def handleNestmlNestml(postNeuron, synapseName):
     newNodeCollection = ModelManager.Nest.Create(*args, **kwargs)
 
     synapseStates = getCommonItemsKeys(newNodeCollection.get().keys(), synapseValues["synapse_model"])
-    setSynapsesKeys(synapsesToUpdate ,synapseStates)
+    setSynapsesKeys(synapsesToUpdate, synapseStates)
 
     updateNodeCollection(newNodeCollection, postNeuronValues, synapseValues)
 
@@ -125,13 +129,81 @@ def updateNodeCollection(newNcp, oldNcpDic,  synapseValues):
     updateNodeCollectionWithSynapseItems(newNcp, synapseValues, neuronToSynapse)
 
 
-def handleNestmlBuiltin(neuronName, synapseName):
-    pass
+def handleNestmlBuiltin(postNeuron, synapseName):
+    return None, None
 
 
-def handleBuiltinNestml(neuronName, synapseName):
-    raise Exception(f"Cannot have a builtin neuron {neuronName} with external synapse model {synapseName}")
+def handleBuiltinNestml(postNeuron, synapseName):
+    raise Exception(f"Cannot have a builtin neuron {postNeuron} with external synapse model {synapseName}")
 
 
-def handleBuiltinBuiltin(neuronName, synapseName):
-    pass
+def handleBuiltinBuiltin(postNeuron, synapseName):
+
+    postNeuronValues = postNeuron.get()
+    neuronName = postNeuronValues["models"]
+    neuronName = neuronName[0] if isinstance(neuronName, (tuple, list)) else neuronName
+    if neuronName == "UnknownNode":
+        import re
+        pattern = "model=(.*?),"
+        neuronName = re.search(pattern, str(postNeuron)).group(1)
+
+    pair = [neuronName, synapseName]
+    if all(x in ModelManager.ExternalModels for x in pair):
+        synapse = ModelManager.JitModels[synapseName]
+        neuron = ModelManager.JitModels[neuronName]
+
+        synapsesToUpdate = []
+        synapseValues = synapse.default
+        synapsesToUpdate.append(synapse)
+
+        rootSynapse = synapse.root if synapse.root else synapseName
+        synapseValues["synapse_model"] = rootSynapse
+
+        rootNeuron = neuron.root if neuron.root else neuronName
+
+        kwargs = neuron.createParams["kwargs"]
+        args = neuron.createParams["args"]
+
+        newNeuronName = f"{rootNeuron}__with_{rootSynapse}"
+        newSynapseName = f"{rootSynapse}__with_{rootNeuron}"
+
+        ModelManager.JitModels[newSynapseName] = ModelManager.JitModels[rootSynapse]
+        newSynapse = ModelManager.JitModels[newSynapseName]
+        newSynapse.name = newSynapseName
+        synapsesToUpdate.append(newSynapse)
+
+        kwargs["model"] = newNeuronName
+        newNodeCollection = ModelManager.Nest.Create(*args, **kwargs)
+
+        synapseStates = getCommonItemsKeys(newNodeCollection.get().keys(), synapseValues["synapse_model"])
+        setSynapsesKeys(synapsesToUpdate, synapseStates)
+
+        updateNodeCollection(newNodeCollection, postNeuronValues, synapseValues)
+
+        return newNodeCollection, newSynapseName
+
+    else:
+        return None, None
+
+
+def handle(postNeuron, synapseName):
+    synapse = ModelManager.JitModels[synapseName]
+    rootSynapse = synapse.root if synapse.root else synapseName
+    postNeuronValues = postNeuron.get()
+    neuronName = postNeuronValues["models"]
+    neuronName = neuronName[0] if isinstance(neuronName, (tuple, list)) else neuronName
+    if neuronName == "UnknownNode":
+        import re
+        pattern = "model=(.*?),"
+        neuronName = re.search(pattern, str(postNeuron)).group(1)
+    models = ModelManager.Nest.Models()
+    newSynapseName = f"{rootSynapse}__with_{neuronName}"
+    pair = [neuronName, newSynapseName]
+    if all(x in models for x in pair):
+        return handleBuiltinBuiltin(postNeuron, synapseName)
+    elif all(x not in models for x in pair):
+        return handleNestmlNestml(postNeuron, synapseName)
+    elif neuronName not in models and synapseName in models:
+        return handleNestmlBuiltin(postNeuron, synapseName)
+    else:
+        return handleBuiltinNestml(postNeuron, synapseName)

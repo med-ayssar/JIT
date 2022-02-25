@@ -1,6 +1,4 @@
-from pydoc import classname
-from sqlite3 import paramstyle
-from numpy import var
+
 from pynestml.codegeneration.nest_cpp_printer import NestCppPrinter
 from jinja2 import Environment, BaseLoader, FileSystemLoader
 import os
