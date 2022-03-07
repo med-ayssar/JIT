@@ -1,3 +1,4 @@
+from logging import root
 from jit.helpers.connect_helper import ConnectHelper
 from jit.helpers.nodeCollection_helper import NodeCollectionHelper
 from jit.wrapper.wrapper import Wrapper
@@ -7,6 +8,8 @@ from jit.helpers.create_helper import CreateHelper
 from jit.helpers.simulate_helper import SimulateHelper
 from jit.helpers.model_helper import CopyModel, models, printNodes
 from jit.models.model_manager import ModelManager
+from jit.utils.utils import swapConnections
+from jit.models.node_collection_proxy import NodeCollectionProxy
 
 
 class CreateWrapper(Wrapper):
@@ -42,10 +45,11 @@ class ConnectWrapper(Wrapper):
         self.connectionHelper.reset()
         models = set()
         postNodes = None
-        synapseName = syn_spec.get("synapse_model", None)
+        synapseName = syn_spec.get("synapse_model", "static_synapse") if syn_spec else "static_synapse"
         if synapseName and synapseName in ModelManager.ExternalModels:
             postNodes, synapseName = self.connectionHelper.convertPostNeuron(post, synapseName)
-            models.add(synapseName)
+            if synapseName:
+                models.add(synapseName)
 
         sourceModelName = set(pre.get()["models"]) if pre.hasJitNodeCollection() else set()
         targetModelName = set(post.get()["models"]) if post.hasJitNodeCollection() else set()
@@ -57,12 +61,16 @@ class ConnectWrapper(Wrapper):
         self.connectionHelper.waitForThreads(rootModels)
 
         # install all new modules
-        self.connectionHelper.installModules(rootModels)
+        if len(rootModels) > 0:
+            self.connectionHelper.installModules(rootModels)
         # convert all JitNodeCollections to NodeCollections
         self.connectionHelper.convertToNodeCollection(pre)
         if postNodes:
+            if post.nestNodeCollection is not None:
+                swapConnections(post.nestNodeCollection, postNodes)
             post.nestNodeCollection = postNodes
             post.jitNodeCollection = None
+
         else:
             self.connectionHelper.convertToNodeCollection(post)
 
@@ -161,16 +169,20 @@ class GetStatusWrapper(Wrapper):
 
     def main_func(self, nodes, keys=None, output=""):
         res = []
-        for node in nodes:
-            if node.jitNodeCollection:
-                if keys is None:
-                    res.append(node.jitNodeCollection.get())
-                else:
-                    res.append(node.jitNodeCollection.get(keys))
+        if isinstance(nodes, NodeCollectionProxy):
+            for node in nodes:
+                if node.jitNodeCollection:
+                    if keys is None:
+                        res.append(node.jitNodeCollection.get())
+                    else:
+                        res.append(node.jitNodeCollection.get(keys))
 
-            if node.nestNodeCollection:
-                res.extend(ModelManager.Nest.GetStatus(node.nestNodeCollection, keys))
-        return res
+                if node.nestNodeCollection:
+                    res.extend(ModelManager.Nest.GetStatus(node.nestNodeCollection, keys))
+            return res
+        else:
+            # synapsecollection
+            return ModelManager.Nest.GetStatus(nodes, keys)
 
     @ staticmethod
     def getName():
@@ -190,6 +202,19 @@ class SetStatusWrapper(Wrapper):
     @ staticmethod
     def getName():
         return "nest.SetStatus"
+
+
+class ResetKernelWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, True, disable)
+
+    def main_func(*args, **kwargs):
+        ModelManager.resetManager()
+        ModelManager.Nest.ResetKernel()
+
+    @ staticmethod
+    def getName():
+        return "nest.ResetKernel"
 
 
 class SetDefaultsWrapper(Wrapper):

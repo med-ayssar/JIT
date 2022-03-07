@@ -22,7 +22,7 @@ class ModelQuery():
             path, code = get_neuron(self.neuron, self.nestml_folders, "synapse")
 
         if path is not None:
-            return ModelHandle(self.neuron, path, False, code)
+            return ModelHandle(self.neuron, path, False)
         return None
 
     def find_model_in_lib(self):

@@ -1,3 +1,5 @@
+from jinja2 import ModuleLoader
+from numpy import source
 from jit.models.model_manager import ModelManager
 
 
@@ -23,8 +25,8 @@ def updateNodeCollectionWithSynapseItems(nc, synapseItems, keys):
         newValue = synapseItems.get(synapseKey, None)
         if newValue:
             toSet[ncKey] = newValue
-
-    nc.set(**toSet)
+    if len(toSet) > 0:
+        nc.set(**toSet)
 
 
 def cleanDictionary(dic, toKeep):
@@ -53,6 +55,12 @@ def handleNestmlNestml(postNeuron, synapseName):
     postNeuronValues = postNeuron.get()
     neuronName = postNeuronValues["models"]
     neuronName = neuronName[0] if isinstance(neuronName, (tuple, list)) else neuronName
+
+    if neuronName == "UnknownNode":
+        import re
+        pattern = "model=(.*?),"
+        neuronName = re.search(pattern, str(postNeuron)).group(1)
+
     synapse = ModelManager.JitModels[synapseName]
     neuron = ModelManager.JitModels[neuronName]
 
@@ -71,8 +79,8 @@ def handleNestmlNestml(postNeuron, synapseName):
     synapseAst = ModelManager.ParsedModels[rootSynapse]
     neuronAst = ModelManager.ParsedModels[rootNeuron]
 
-    newNeuronName = f"{rootNeuron}__with_{rootSynapse}"
-    newSynapseName = f"{rootSynapse}__with_{rootNeuron}"
+    newNeuronName = f"{rootNeuron}__with_{rootSynapse}" if "with" not in rootNeuron else rootNeuron
+    newSynapseName = f"{rootSynapse}__with_{rootNeuron}" if "with" not in rootSynapse else rootSynapse
 
     # mnust clone instead
     ModelManager.JitModels[newSynapseName] = ModelManager.JitModels[rootSynapse]
@@ -134,7 +142,19 @@ def handleNestmlBuiltin(postNeuron, synapseName):
 
 
 def handleBuiltinNestml(postNeuron, synapseName):
+
     raise Exception(f"Cannot have a builtin neuron {postNeuron} with external synapse model {synapseName}")
+
+
+def getModelNameFromNode(ncp):
+    postNeuronValues = ncp.get()
+    neuronName = postNeuronValues["models"]
+    neuronName = neuronName[0] if isinstance(neuronName, (tuple, list)) else neuronName
+    if neuronName == "UnknownNode":
+        import re
+        pattern = "model=(.*?),"
+        neuronName = re.search(pattern, str(ncp)).group(1)
+    return neuronName
 
 
 def handleBuiltinBuiltin(postNeuron, synapseName):
@@ -183,7 +203,35 @@ def handleBuiltinBuiltin(postNeuron, synapseName):
         return newNodeCollection, newSynapseName
 
     else:
-        return None, None
+        neuronName = getModelNameFromNode(postNeuron)
+        synapse = ModelManager.JitModels[synapseName]
+        synapsesToUpdate = []
+        synapseValues = synapse.default
+        synapsesToUpdate.append(synapse)
+
+        rootSynapse = synapse.root if synapse.root else synapseName
+        synapseValues["synapse_model"] = rootSynapse
+
+        args, kwargs = postNeuron.getCreationParams()
+
+        newNeuronName = f"{neuronName}__with_{rootSynapse}"
+        newSynapseName = f"{rootSynapse}__with_{neuronName}"
+
+        ModelManager.JitModels[newSynapseName] = ModelManager.JitModels[rootSynapse]
+        newSynapse = ModelManager.JitModels[newSynapseName]
+        newSynapse.name = newSynapseName
+        synapsesToUpdate.append(newSynapse)
+
+        kwargs["model"] = newNeuronName
+        assert newNeuronName in ModelManager.Nest.Models(), f" The model {newNeuronName} isn't found in nest"
+        newNodeCollection = ModelManager.Nest.Create(*args, **kwargs)
+
+        synapseStates = getCommonItemsKeys(newNodeCollection.get().keys(), synapseValues["synapse_model"])
+        setSynapsesKeys(synapsesToUpdate, synapseStates)
+
+        updateNodeCollection(newNodeCollection, postNeuronValues, synapseValues)
+
+        return newNodeCollection, newSynapseName
 
 
 def handle(postNeuron, synapseName):
@@ -197,13 +245,84 @@ def handle(postNeuron, synapseName):
         pattern = "model=(.*?),"
         neuronName = re.search(pattern, str(postNeuron)).group(1)
     models = ModelManager.Nest.Models()
-    newSynapseName = f"{rootSynapse}__with_{neuronName}"
-    pair = [neuronName, newSynapseName]
-    if all(x in models for x in pair):
+    newSynapseName = f"{rootSynapse}__with_{neuronName}" if "with" not in rootSynapse else rootSynapse
+    pair = [neuronName, rootSynapse]
+    if all(x in models for x in [neuronName, newSynapseName]):
         return handleBuiltinBuiltin(postNeuron, synapseName)
-    elif all(x not in models for x in pair):
+    elif all(x in ModelManager.JitModels for x in [neuronName, rootSynapse]):
         return handleNestmlNestml(postNeuron, synapseName)
-    elif neuronName not in models and synapseName in models:
+    elif neuronName not in models and newSynapseName in models:
         return handleNestmlBuiltin(postNeuron, synapseName)
     else:
         return handleBuiltinNestml(postNeuron, synapseName)
+
+
+def getName(ncp):
+    ncpValues = ncp.get()
+    neuronName = ncpValues["models"]
+    neuronName = neuronName[0] if isinstance(neuronName, (tuple, list)) else neuronName
+    if neuronName == "UnknownNode":
+        import re
+        pattern = "model=(.*?),"
+        neuronName = re.search(pattern, str(ncp)).group(1)
+    return neuronName
+
+
+def swapConnections(oldPostNeuron, newPostNeuron):
+    swapSource(oldPostNeuron, newPostNeuron)
+    swapTarget(oldPostNeuron, newPostNeuron)
+
+
+def swapTarget(oldPostNeuron, newPostNeuron):
+    connections = ModelManager.Nest.GetConnections(target=oldPostNeuron).get()
+    if len(connections) > 0:
+        sources = connections["source"]
+        sources = [sources] if not isinstance(sources, list) else sources
+
+        targets = connections["target"]
+        targets = [targets] if not isinstance(targets, list) else targets
+
+        synapses = connections["synapse_model"]
+        synapses = [synapses] if not isinstance(synapses, list) else synapses
+
+        tuples = zip(sources, synapses, targets)
+        oldTargetIds = oldPostNeuron.tolist()
+        newTargetIds = newPostNeuron.tolist()
+
+        for source, synapse, target in tuples:
+            pre = ModelManager.Nest.NodeCollection([source])
+            post = ModelManager.Nest.NodeCollection([target])
+            ModelManager.Nest.Disconnect(pre, post, syn_spec=synapse)
+
+            pos = oldTargetIds.index(target)
+            newId = newTargetIds[pos]
+            post = ModelManager.Nest.NodeCollection([newId])
+            ModelManager.Nest.Connect(pre, post, syn_spec={"synapse_model": synapse})
+
+
+def swapSource(oldPostNeuron, newPostNeuron):
+    connections = ModelManager.Nest.GetConnections(source=oldPostNeuron).get()
+    if len(connections) > 0:
+        sources = connections["source"]
+        sources = [sources] if not isinstance(sources, list) else sources
+
+        targets = connections["target"]
+        targets = [targets] if not isinstance(targets, list) else targets
+
+        synapses = connections["synapse_model"]
+        synapses = [synapses] if not isinstance(synapses, list) else synapses
+
+        tuples = zip(sources, synapses, targets)
+        oldSourcesIds = oldPostNeuron.tolist()
+        newSourcesIds = newPostNeuron.tolist()
+
+        for source, synapse, target in tuples:
+            source
+            pre = ModelManager.Nest.NodeCollection([source])
+            post = ModelManager.Nest.NodeCollection([target])
+            ModelManager.Nest.Disconnect(pre, post, syn_spec=synapse)
+
+            pos = oldSourcesIds.index(source)
+            newId = newSourcesIds[pos]
+            pre = ModelManager.Nest.NodeCollection([newId])
+            ModelManager.Nest.Connect(pre, post, syn_spec={"synapse_model": synapse})

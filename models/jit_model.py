@@ -20,6 +20,7 @@ class JitModel:
         self.type = mtype
         self.astModel = astModel
         self.stateKeys = ["synapse_model"] if mtype == "synapse" else []
+        self.isExternal = True
 
     def setStates(self, keys):
         if isinstance(keys, list):

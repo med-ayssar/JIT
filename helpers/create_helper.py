@@ -31,10 +31,12 @@ class CreateHelper:
         return self.nodeCollectionProxy
 
     def handleBuiltIn(self, modelName, n=1, params=None, positions=None):
+
         # create the real instance of NodeCollection
         nodeCollection = ModelManager.Nest.Create(modelName, n, params, positions)
         # make the NodeCollection hashable, will be removed later
         setattr(nodeCollection.__class__, "__hash__", lambda nc: hash(nc._datum))
+        self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # set Ids range

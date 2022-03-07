@@ -6,14 +6,12 @@ from jit.models.model_indexer import ModelIndexer
 
 
 class ModelManager():
-    to_populate = {}
     _Manager = Manager()
     Threads = []
     ThreadsState = _Manager.dict()
     Modules = dict()
     NodeCollectionProxy = []
     JitModels = {}
-    Synapses = {}
     ExternalModels = []
     ModelIndexer = {}
     ParsedModels = {}
@@ -21,15 +19,20 @@ class ModelManager():
     Nest = None
 
     @staticmethod
+    def resetManager():
+        ModelManager.ExternalModels = []
+        ModelManager.ModelIndexer = {}
+        ModelManager.NodeCollectionProxy = []
+        ModelManager.Index = 0
+
+        ModelManager.JitModels = {}
+
+    @staticmethod
     def add_model(model_name, handle):
         if hasattr(handle, "is_lib") and handle.is_lib:
             ModelManager.populated[model_name] = handle.get_nest_instance()
 
         ModelManager.to_populate[model_name] = handle
-
-    @staticmethod
-    def populate(name, nodeCollectionInstance):
-        ModelManager.to_populate[name][0] = nodeCollectionInstance
 
     @staticmethod
     def add_module_to_install(name, addToPathFunc):
@@ -102,7 +105,7 @@ class ModelManager():
         roots = set()
         for model in models:
             jitModel = ModelManager.JitModels.get(model, None)
-            if jitModel:
+            if jitModel and jitModel.isExternal:
                 if jitModel.root:
                     roots.add(jitModel.root)
                 else:

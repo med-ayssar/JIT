@@ -84,7 +84,11 @@ class CopyModel:
         # add module to path
         self.modelHandle.add_module_to_path()
         # install the module
-        ModelManager.Nest.Install(self.modelHandle.moduleName)
+        try:
+            ModelManager.Nest.Install(self.modelHandle.moduleName)
+        except:
+            # in case already loaded
+            pass
 
         defaults = ModelManager.Nest.GetDefaults(self.modelHandle.neuron)
         mtype = "synapse" if "num_connections" in defaults else "neuron"

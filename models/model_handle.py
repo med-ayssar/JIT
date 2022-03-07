@@ -13,7 +13,7 @@ from copy import deepcopy
 
 
 class ModelHandle():
-    def __init__(self, name, model_path=None, is_lib=False, code=None):
+    def __init__(self, name, model_path=None, is_lib=False):
         self.neuron = name
         self.moduleName = f"{self.neuron}module"
 
@@ -24,8 +24,7 @@ class ModelHandle():
         self.stderrPath = os.path.join(self.target, "error.txt")
         self.build_path = os.path.join(os.getcwd(), "build")
         self.lib_path = os.path.join(self.build_path)
-        self.isValid = False
-        self.code = code
+        self.isExternal = True if "nest/lib" not in model_path else False
         self.options = None
 
     def add_module_to_path(self):
