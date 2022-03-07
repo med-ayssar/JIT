@@ -1,0 +1,41 @@
+#include <cmath> 
+#include <algorithm>
+#include <vector>
+#include<string>
+#include<iostream>
+
+
+class {{name | upper}} 
+{   
+private:
+{%- filter indent(2, True) -%}
+        {{state}}
+
+        {{parameters}}
+{% endfilter %}
+
+{% filter indent(4, True) -%}
+    {{stateInstance}}
+{% endfilter %}
+
+{%- filter indent(4, True) -%}
+    {{paramInstance}}
+{%- endfilter %}
+
+  
+public:
+{% filter indent(4, True) -%}
+    {%- for callable in callables -%}
+        {{callable}}
+    {%- endfor %}
+    {%- endfilter %}
+
+{%- filter indent(2, True) -%}
+    {{getterAndSetter}}
+{%- endfilter -%}
+
+   {%- include "Constructor.jinja2" %}
+
+   {% include "HelpFunctions.jinja2" %}
+
+};

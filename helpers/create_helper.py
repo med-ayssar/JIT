@@ -11,7 +11,7 @@ class CreateHelper:
         # prepare the NodeCollectionProxy instance
         self.nodeCollectionProxy = NodeCollectionProxy()
 
-    def Create(self, modelName, n=1, params=None, positions=None):
+    def Create(self, modelName, n=1, params=None, positions=None, options=None):
         if modelName in ModelManager.JitModels:
             self.handleJitModel(modelName, n, params, positions)
         # if the model is already installed
@@ -19,9 +19,10 @@ class CreateHelper:
             self.handleBuiltIn(modelName, n, params, positions)
         # else if the model is an external lib, but not yet installed
         else:
+            ModelManager.ExternalModels.append(modelName)
             model_query = ModelQuery(modelName)
             # create the model handle (nestml or lib)
-            self.modelHandle = model_query.get_model_handle()
+            self.modelHandle = model_query.getModelHandle()
             if self.modelHandle.is_lib:
                 self.handleExternalLib(modelName, n, params, positions)
             # else if the model is only available as nestml object
@@ -30,10 +31,12 @@ class CreateHelper:
         return self.nodeCollectionProxy
 
     def handleBuiltIn(self, modelName, n=1, params=None, positions=None):
+
         # create the real instance of NodeCollection
         nodeCollection = ModelManager.Nest.Create(modelName, n, params, positions)
         # make the NodeCollection hashable, will be removed later
         setattr(nodeCollection.__class__, "__hash__", lambda nc: hash(nc._datum))
+        self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # set Ids range
@@ -43,6 +46,12 @@ class CreateHelper:
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleExternalLib(self, modelName, n=1, params=None, positions=None):
+        jitModel = JitModel(name=modelName)
+        ModelManager.JitModels[modelName] = jitModel
+        n, dic = self.getParams(modelName, n, params, positions)
+        jitModel.setCreateParams(**dic)
+
+        self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # add module to path
         self.modelHandle.add_module_to_path()
         # install the module
@@ -53,34 +62,30 @@ class CreateHelper:
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # set Ids range
         first, last = ModelManager.updateIndex(modelName, n)
-        self.nodeCollectionProxy.virtualIds.append(range(first, last+1))
+        self.nodeCollectionProxy.virtualIds.append(range(first, last + 1))
 
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleNestml(self, modelName, n=1, params=None, positions=None):
-        # extract structural information from the model
-        modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
-        # create the JitModel holding the model strucutre
-        jitModel = JitModel(name=modelName, variables=modelDeclatedVars)
-        # store the additional parameters in the Jitmodel instance
-        n, dic = self.getParams(modelName, n, params, positions)
-        jitModel.setCreateParams(**dic)
-        # create the first JitNode referring to the JitModel instance
-        first, last = ModelManager.addJitModel(modelName, n, jitModel)
-        initialJitNode = JitNode(name=modelName, first=first, last=last)
-        # create instance of the JitNodeCollection
-        jitNodeCollection = JitNodeCollection(initialJitNode, isNotInitial=False)
-        if positions:
-            jitNodeCollection.setSpatial(positions)
-        # store the JitNodeCollection in the Proxy
-        self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
-        # set Ids range
-        self.nodeCollectionProxy.virtualIds.append(range(first, last))
 
-        ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
+        ModelManager.ExternalModels.append(modelName)
+        self.modelHandle.processModels(None)
+        model = self.modelHandle.getModels()[0]
+
+        givenKeys = set(params.keys()) if params else set()
+        expectedKeys = set(model.declaredVarialbes)
+        result = givenKeys.difference(expectedKeys)
+        if len(result) > 0:
+            wrongKeys = ",".join(result)
+            raise KeyError(f"{modelName} doesn't have {wrongKeys} as paramaters or states")
+
+        self.registerModels([model])
+
+        self.handleJitModel(modelName, n, params, positions)
+
         ModelManager.add_module_to_install(self.modelHandle.neuron, self.modelHandle.add_module_to_path)
 
-        createThread = JitThread(modelName, self.modelHandle.build)
+        createThread = JitThread([model.name], self.modelHandle.build)
         ModelManager.Threads.append(createThread)
         # start thread
         createThread.start()
@@ -95,6 +100,8 @@ class CreateHelper:
         if positions:
             jitNodeCollection.setSpatial(positions)
         self.nodeCollectionProxy.jitNodeCollection = jitNodeCollection
+        if params:
+            self.nodeCollectionProxy.set(**params)
         # set Ids range
         self.nodeCollectionProxy.virtualIds.append(range(first, last))
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
@@ -103,9 +110,15 @@ class CreateHelper:
         positionsXorN = n if positions is None else positions
         key = "n" if positions is None else "positions"
         import numpy
+
         size = n if positions is None else numpy.prod(positions.shape)
-        return size, {
-            "model": model,
-            "params": params,
-            key: positionsXorN
-        }
+        return size, {"model": model, "params": params, key: positionsXorN}
+
+    def registerModels(self, models):
+        for model in models:
+            name = model.name
+            modelChecker = model
+            mtype = model.type
+            astModel = self.modelHandle.neurons[0] if mtype == "neuron" else self.modelHandle.synapse[0]
+            jitModel = JitModel(name=name, modelChecker=modelChecker, astModel=astModel, mtype=mtype)
+            ModelManager.JitModels[name] = jitModel

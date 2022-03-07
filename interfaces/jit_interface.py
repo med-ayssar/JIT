@@ -75,10 +75,14 @@ class JitInterface():
                     else:
                         values = [value] * subDict[1]
                         subRes.extend(values)
+                    
                 else:
                     notFound = [None] * subDict[1]
                     subRes.extend(notFound)
-            toMerge[item] = subRes
+            if len(subRes) > 1 :
+                toMerge[item] = subRes
+            else:
+                toMerge[item] = subRes[0]
         if hasModels:
             models = []
             for subDict in tuples:
@@ -90,9 +94,10 @@ class JitInterface():
             toMerge["models"] = models
         if len(toMerge.keys()) == 1:
             values = toMerge[list(toMerge.keys())[0]]
-            if len(values) == 1:
-                return values[0]
-
+            #if len(values) == 1:
+            #    return values[0]
+        if len(args) == 1:
+            return toMerge[args[0]]
         return toMerge
 
     def set(self, params=None, **kwargs):

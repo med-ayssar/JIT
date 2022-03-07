@@ -9,7 +9,9 @@ class NodeCollectionProxy(JitInterface):
         self.nestNodeCollection = nestNodeCollection
         if virtualIds is None:
             virtualIds = []
-        self.virtualIds = virtualIds
+        self.__dict__["virtualIds"] = virtualIds
+        self.__dict__["synapseName"] = None
+        self.__dict__["creationArgs"] = {}
 
     def getChildren(self):
         children = []
@@ -18,6 +20,13 @@ class NodeCollectionProxy(JitInterface):
         if self.nestNodeCollection:
             children.append(self.nestNodeCollection)
         return children
+
+    def setCreationParams(self, n, params, positions):
+        kwargs = {"n": n, "params": params, "positions": positions}
+        self.creationArgs.update(kwargs)
+
+    def getCreationParams(self):
+        return (), self.creationArgs
 
     def getNumberOfChildren(self):
         count = 0
@@ -88,8 +97,8 @@ class NodeCollectionProxy(JitInterface):
                 self.__dict__["nestNodeCollection"] = value
             else:
                 raise ValueError(f"{self.__class__.__name__}.{name} accepts only a NodeCollection instance")
-        elif name == "virtualIds":
-            self.__dict__["virtualIds"] = value
+        elif name == self.__dict__:
+            self.__dict__[name] = value
         else:
             raise KeyError(f"{self.__class__.__name__} doesn't have {name} as attribute")
 

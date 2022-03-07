@@ -1,11 +1,15 @@
+from nbformat import current_nbformat_minor
 from jit.models.model_manager import ModelManager
 from jit.models.jit_model import JitModel, JitNode
 from jit.utils.thread_manager import JitThread
 from jit.models.model_query import ModelQuery
+from jit.utils.utils import getCommonItemsKeys
 import copy
 
 
 class CopyModel:
+    Pending = []
+
     def __init__(self, old, new, newDefault):
         self.oldModelName = old
         self.newModelName = new
@@ -18,24 +22,58 @@ class CopyModel:
             self.handleBuiltIn()
         else:
             # initiate search for the model
-            model_query = ModelQuery(self.oldModelName)
+            model_query = ModelQuery(self.oldModelName, onlyNeuron=False)
+            ModelManager.ExternalModels.append(self.oldModelName)
+            ModelManager.ExternalModels.append(self.newModelName)
+
             # create the model handle (nestml or lib)
-            self.modelHandle = model_query.get_model_handle()
+            self.modelHandle = model_query.getModelHandle()
+
             if self.modelHandle.is_lib:
                 self.handleExternLib()
             else:
                 self.handleNestml()
 
     def handleBuiltIn(self):
-        ModelManager.Nest.CopyModel(
-            self.oldModelName, self.newModelName, self.newDefault
-        )
+        neuron, synapse = self.__getNeuronSynapsePair()
+        if synapse is None:
+            ModelManager.Nest.CopyModel(
+                self.modelHandle.neuron, self.newModelName, self.newDefault)
+        else:
+            neuronName = f"{neuron}__with_{synapse}"
+            keys = set(ModelManager.Nest.GetDefaults(neuronName).keys())
+            commonKeys = getCommonItemsKeys(keys, synapse)
+
+            neuronDict = {}
+            for neuronKey, synapseKey in commonKeys.items():
+                value = self.newDefault.pop(synapseKey, None)
+                if value:
+                    neuronDict[neuronKey] = value
+
+            CopyModel.Pending.append([ModelManager.Nest.CopyModel, self.modelHandle.neuron,
+                                     self.newModelName, self.newDefault])
+
+            # ModelManager.Nest.CopyModel(
+            #    self.modelHandle.neuron, self.newModelName, self.newDefault)
+
+            ModelManager.Nest.SetDefaults(neuronName, neuronDict)
+
+    def __getNeuronSynapsePair(self):
+        currentModuleName = self.modelHandle.moduleName
+        currentModuleName = currentModuleName.replace("module", "")
+        if currentModuleName.find("__with_") > -1:
+            neuronSynapse = currentModuleName.split("__with_")
+            assert len(neuronSynapse) == 2, "The library file name doesn't contain the expected neuron_synapse name!"
+            return neuronSynapse
+
+        else:
+            return currentModuleName, None
 
     def handleJitModel(self):
         oldModel = ModelManager.JitModels[self.oldModelName]
-        newModel = JitModel(
-            name=self.newModelName, variables=copy.deepcopy(oldModel.default)
-        )
+        newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker,
+                            astModel=oldModel.astModel, mtype=oldModel.type)
+
         newModel.root = self.oldModelName
         oldModel.alias.append(self.newModelName)
         if self.newDefault:
@@ -46,27 +84,44 @@ class CopyModel:
         # add module to path
         self.modelHandle.add_module_to_path()
         # install the module
-        ModelManager.Nest.Install(self.modelHandle.moduleName)
+        try:
+            ModelManager.Nest.Install(self.modelHandle.moduleName)
+        except:
+            # in case already loaded
+            pass
+
+        defaults = ModelManager.Nest.GetDefaults(self.modelHandle.neuron)
+        mtype = "synapse" if "num_connections" in defaults else "neuron"
+        jitModel = JitModel(name=self.oldModelName, mtype=mtype)
+        jitModel.default = defaults
+        ModelManager.JitModels[self.oldModelName] = jitModel
+        self.handleJitModel()
         # rest like handleBuitIn
         self.handleBuiltIn()
 
     def handleNestml(self):
         # extract structural information from the model
-        modelDeclatedVars = self.modelHandle.getModelDeclaredVariables()
-        # create the JitModel holding the model strucutre
-        jitModel = JitModel(name=self.oldModelName, variables=modelDeclatedVars)
-        # create the first JitNode referring to the JitModel instance
-        ModelManager.JitModels[self.oldModelName] = jitModel
+
+        self.modelHandle.processModels(None)
+        models = self.modelHandle.getModels()
+        self.registerModels(models)
         self.handleJitModel()
+        if models[0].type == "neuron":
+            ModelManager.add_module_to_install(self.modelHandle.neuron, self.modelHandle.add_module_to_path)
 
-        ModelManager.add_module_to_install(
-            self.modelHandle.neuron, self.modelHandle.add_module_to_path
-        )
+            createThread = JitThread([self.oldModelName], self.modelHandle.build)
+            ModelManager.Threads.append(createThread)
+            # start thread
+            createThread.start()
 
-        createThread = JitThread(self.oldModelName, self.modelHandle.build)
-        ModelManager.Threads.append(createThread)
-        # start thread
-        createThread.start()
+    def registerModels(self, models):
+        for model in models:
+            name = model.name
+            modelChecker = model
+            mtype = model.type
+            astModel = self.modelHandle.neurons[0] if mtype == "neuron" else self.modelHandle.synapses[0]
+            jitModel = JitModel(name=name, modelChecker=modelChecker, astModel=astModel, mtype=mtype)
+            ModelManager.JitModels[name] = jitModel
 
 
 def models(mtype, sel=None):

@@ -1,5 +1,11 @@
+from urllib.parse import _NetlocResultMixinStr
 from jit.utils.create_report import CreateReport
 from jit.models.model_manager import ModelManager
+from jit.models.model_handle import ModelHandle
+
+from jit.helpers.model_helper import CopyModel
+from jit.utils.utils import handle
+import copy
 
 
 class ConnectHelper:
@@ -11,16 +17,16 @@ class ConnectHelper:
     def waitForThreads(self, threadsName):
         toRemove = []
         for thread in ModelManager.Threads:
-            if thread.modelName in threadsName:
+            if any(name in threadsName for name in thread.names):
                 thread.join()
                 toRemove.append(thread)
-                if thread.modelName in ModelManager.ThreadsState:
-                    state = ModelManager.ThreadsState[thread.modelName]
+                if thread.names[0] in ModelManager.ThreadsState:
+                    state = ModelManager.ThreadsState[thread.names[0]]
                     if state["hasError"]:
-                        values = [thread.modelName]
+                        values = [thread.names[0]]
                         values.extend(state.values())
                         self.report.append(values)
-                        self.reportErrors[thread.modelName] = {
+                        self.reportErrors[thread.names[0]] = {
                             "phase": state["stage"],
                             "Failure Message": state["msg"]
                         }
@@ -31,30 +37,34 @@ class ConnectHelper:
             thread.terminate()
             ModelManager.Threads.remove(thread)
 
-
     def installModules(self, modules):
 
         for model in modules:
             module = f"{model}module"
-            addLibToPath = ModelManager.Modules[model]
-            try:
-                addLibToPath()
-                ModelManager.Nest.Install(module)
-                jitModel = ModelManager.JitModels[model]
-                del ModelManager.Modules[model]
-                if len(jitModel.alias) > 0:
-                    for alias in jitModel.alias:
-                        newModel = ModelManager.JitModels[alias]
-                        ModelManager.Nest.CopyModel(jitModel.name, newModel.name, newModel.default)
-        
-            except Exception as exp:
-                self.reportErrors[module] = {
-                    "phase": "Install",
-                    "Failure Message": str(exp)
-                }
-                self.error_occured = True
-        models = modules
-        ModelManager.setDefaults(models)
+            addLibToPath = ModelManager.Modules.get(model, None)
+            if addLibToPath:
+                try:
+
+                    addLibToPath()
+                    ModelManager.Nest.Install(module)
+
+                except Exception as exp:
+                    self.reportErrors[module] = {
+                        "phase": "Install",
+                        "Failure Message": str(exp)
+                    }
+                    self.error_occured = True
+        ModelManager.setDefaults(modules)
+        ModelManager.copyModels(modules)
+        for copyModel, oldName, newName, newParams in CopyModel.Pending:
+            if oldName not in modules:
+                copyModel(oldName, newName, newParams)
+                
+        CopyModel.Pending.clear()
+
+
+    def convertPostNeuron(self, ncp, synapseModel):
+        return handle(ncp, synapseModel)
 
     def convertToNodeCollection(self, node):
         if node.jitNodeCollection is not None:

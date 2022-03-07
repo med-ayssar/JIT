@@ -15,13 +15,13 @@ class SimulateHelper:
     def waitForThreads(self):
         for thread in ModelManager.Threads:
             thread.join()
-            if thread.modelName in ModelManager.ThreadsState:
-                state = ModelManager.ThreadsState[thread.modelName]
+            if thread.names[0] in ModelManager.ThreadsState:
+                state = ModelManager.ThreadsState[thread.names[0]]
                 if state["hasError"]:
                     values = [thread.modelName]
                     values.extend(state.values())
                     self.report.append(values)
-                    self.reportErrors[thread.modelName] = {
+                    self.reportErrors[thread.names[0]] = {
                         "phase": state["stage"],
                         "Failure Message": state["msg"]
                     }

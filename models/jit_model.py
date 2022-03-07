@@ -1,4 +1,5 @@
 import copy
+from email.policy import default
 from jit.interfaces.jit_interface import JitInterface
 from jit.models.model_manager import ModelManager
 from collections import defaultdict
@@ -7,14 +8,37 @@ import copy
 
 
 class JitModel:
-    def __init__(self, name, variables, variations=None):
+    def __init__(self, name, modelChecker=None, astModel=None, mtype="neuron"):
         self.name = name
-        self.default = variables
+        self.modelchecker = modelChecker
+        self.default = self.extractDefaults()
         self.createParams = {}
         self.attributes = {}
         self.alias = []
         self.hasChanged = False
         self.root = None
+        self.type = mtype
+        self.astModel = astModel
+        self.stateKeys = ["synapse_model"] if mtype == "synapse" else []
+        self.isExternal = True
+
+    def setStates(self, keys):
+        if isinstance(keys, list):
+            self.stateKeys.extend(keys)
+        elif isinstance(keys, str):
+            self.stateKeys.append(keys)
+        else:
+            raise TypeError("keys must either list or str")
+
+    def isFromNestml(self):
+        return self.modelchecker != None
+
+    def getValues(self):
+        import copy
+        values = copy.deepcopy(self.default)
+        for state in self.stateKeys:
+            values.pop(state, None)
+        return values
 
     def addNestIds(self, x, y):
         indexer = ModelManager.ModelIndexer[self.name]
@@ -80,7 +104,10 @@ class JitModel:
                         valuesOfK.append(self.default[k])
                 else:
                     valuesOfK.append(self.default[k])
-            res[k] = valuesOfK
+            if len(valuesOfK) == 1:
+                res[k] = valuesOfK[0]
+            else:
+                res[k] = valuesOfK
         return res
 
     def set(self, ids, collection):
@@ -103,6 +130,19 @@ class JitModel:
 
     def getKeys(self):
         return list(self.default.keys())
+
+    def extractDefaults(self):
+        if self.modelchecker:
+            modelVariables = self.modelchecker.declaredVarialbes
+            defaults = {}
+            for var in modelVariables:
+                funcName = f"get_{var}"
+                value = getattr(self.modelchecker, funcName)()
+                if value.__class__.__name__ == "string":
+                    value = str(value)
+                defaults[var] = value
+            return defaults
+        return {}
 
     def toString(self):
         return f"{self.__class__.__name__}(name={self.name})"
