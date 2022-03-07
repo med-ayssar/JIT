@@ -1,147 +1,98 @@
-import asyncio
-from posixpath import expanduser
+from jit.helpers.connect_helper import ConnectHelper
+from jit.helpers.nodeCollection_helper import NodeCollectionHelper
 from jit.wrapper.wrapper import Wrapper
-from jit.models.model_query import ModelQuery
-import os
-import asyncio
-from jit.models.model_manager import ModelManager
-from jit.utils.thread_manager import JitThread
-from jit.utils.create_report import CreateReport
-from string import Template
 import sys
 from loguru import logger
+from jit.helpers.create_helper import CreateHelper
+from jit.helpers.simulate_helper import SimulateHelper
+from jit.helpers.model_helper import CopyModel, models, printNodes
+from jit.models.model_manager import ModelManager
 
 
 class CreateWrapper(Wrapper):
 
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, isMethode, disable)
-        self.property = {"Install": original_module.Install}
-        self.func = func
-        self.modelHandle = None
+        self.createHelper = None
+        self.nodeCollectionProxy = None
 
-    def before(self, *args, **kwargs):
-        self.neuron_name = args[0]
-        model_query = ModelQuery(self.neuron_name)
-        self.modelHandle = model_query.get_model_handle()
-        module_name = f"{self.neuron_name}module"
-        self.property["args"] = args
-        self.property["kwargs"] = kwargs
-        if not self.modelHandle.is_lib:
-            createThread = JitThread(self.neuron_name, self.__create_model, ModelManager.Modules)
-            ModelManager.Threads.append(createThread)
-            ModelManager.add_module_to_install(module_name, self.modelHandle)
-            # start thread
-            createThread.start()
-        else:
-            self.__create_model(ModelManager.Modules)
-        return args, kwargs
-
-    def __create_model(self, sharedDict):
-        self.modelHandle.build()
-        params = {"args": self.property["args"], "kwargs": self.property["kwargs"], "name": self.neuron_name}
-        self.modelHandle.add_params("Create", params)
-        self.modelHandle.isValid = True
-        module_name = f"{self.neuron_name}module"
-        ModelManager.add_module_to_install(module_name, self.modelHandle)
+    def before(self, modelName, n=1, params=None, positions=None):
+        self.createHelper = CreateHelper(modelName)
+        self.nodeCollectionProxy = self.createHelper.Create(modelName, n, params, positions)
+        return (), {}
 
     def after(self, *args):
-        ModelManager.add_model(self.neuron_name, self.modelHandle.get_neuron())
-        return ModelManager.to_populate[self.neuron_name]
+        return self.nodeCollectionProxy
 
     def main_func(self, *args, **kwargs):
-        # ignore the real nest function
-        return args, kwargs
+        pass
 
     @staticmethod
-    def get_name():
+    def getName():
         return "nest.Create"
 
 
 class ConnectWrapper(Wrapper):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, isMethode, disable)
+        self.connectionHelper = ConnectHelper()
 
-    def before(self, *args, **kwargs):
-        return super().before(*args, **kwargs)
+    def before(self, pre, post, conn_spec=None, syn_spec=None, return_synapsecollection=False):
+        # reset the SimulateHelper
+        self.connectionHelper.reset()
+        sourceModelName = set(pre.get()["models"]) if pre.hasJitNodeCollection() else set()
+        targetModelName = set(post.get()["models"]) if post.hasJitNodeCollection() else set()
+        models = sourceModelName.union(targetModelName)
+        # wait for all threads to finish
+        rootModels = ModelManager.getRootOf(models)
+        self.connectionHelper.waitForThreads(rootModels)
+        # install all new modules
+        self.connectionHelper.installModules(rootModels)
+        # convert all JitNodeCollections to NodeCollections
+        self.connectionHelper.convertToNodeCollection(pre)
+        self.connectionHelper.convertToNodeCollection(post)
 
-    def after(self, *args):
-        return super().after(*args)
+        # print report summary
+        self.connectionHelper.showReport()
+        # check if we must abort before running the simulate
+        if self.connectionHelper.mustAbort():
+            sys.exit()
+        return (pre.nestNodeCollection, post.nestNodeCollection), {"conn_spec": conn_spec, "syn_spec": syn_spec, "return_synapsecollection": return_synapsecollection}
 
     @staticmethod
-    def get_name():
+    def getName():
         return "nest.Connect"
 
 
 class SimulateWrapper(Wrapper):
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, isMethode, disable)
-        self.property = {"Install": original_module.Install}
-        self.property["Create"] = original_module.Create
-        self.error_occured = False
-        self.report = CreateReport()
-        self.reportError = {}
+        self.simulateHelper = SimulateHelper()
 
     def before(self, *args, **kwargs):
-
-        self.__insepectThreads()
-        current_dict = ModelManager.Modules.get()
-        for module, handle in current_dict.items():
-            try:
-                if handle.neuron not in ModelManager.ThreadsState:
-                    msg = "skipped" if handle.is_lib else "ok"
-                    handle.add_module_to_path()
-                    create_args = handle.params["Create"]["args"]
-                    create_kwargs = handle.params["Create"]["kwargs"]
-                    self.property["Install"](module)
-                    nest_create_return = self.property["Create"](*create_args, **create_kwargs)
-                    ModelManager.populate(handle.params["Create"]["name"], nest_create_return)
-                    self.report.append([handle.neuron, msg, msg, "ok", "None"])
-            except Exception as exp:
-                self.report.append([handle.neuron, msg, msg, "Failed"])
-                self.error_occured = True
-                self.reportError[handle.neuron] = {
-                    "phase": "Install",
-                    "Failure Message": str(exp)
-                }
-
-        ModelManager.Modules.close()
-        # print errors summary
-        if len(self.reportError) > 0:
-            errorSummary = "While processing the models, the follwing errors have occured:\n" + str(self.reportError)
-            print(errorSummary)
-        # print Create summary
-        print(self.report)
-
-        if self.error_occured:
+        # reset the SimulateHelper
+        self.simulateHelper.reset()
+        # wait for all threads to finish
+        self.simulateHelper.waitForThreads()
+        # install all new modules
+        self.simulateHelper.installModules()
+        # convert all JitNodeCollections to NodeCollections
+        self.simulateHelper.convertToNodeCollection()
+        # broadcast converted JitNodeCollections to their subsets
+        self.simulateHelper.broadcastChanges()
+        # print report summary
+        self.simulateHelper.showReport()
+        # check if we must abort before running the simulate
+        if self.simulateHelper.mustAbort():
             sys.exit()
 
         return args, kwargs
 
-    # def main_func(self, *args, **kwargs):
-    #     # ignore the real nest function
-    #     return args, kwargs
-    def __insepectThreads(self):
-        for thread in ModelManager.Threads:
-            thread.join()
-            if thread.modelName in ModelManager.ThreadsState:
-                state = ModelManager.ThreadsState[thread.modelName]
-                if state["hasError"]:
-                    values = [thread.modelName]
-                    values.extend(state.values())
-                    self.report.append(values)
-                    self.reportError[thread.modelName] = {
-                        "phase": state["stage"],
-                        "Failure Message": state["msg"]
-                    }
-
-                self.error_occured = True
-
     def after(self, *args):
-        return super().after(*args)
+        self.simulateHelper.deleteJitModels()
 
     @ staticmethod
-    def get_name():
+    def getName():
         return "nest.Simulate"
 
 
@@ -151,7 +102,7 @@ class DisableNestFunc(Wrapper):
         super().__init__(*args, **kwargs)
 
     @ staticmethod
-    def get_name():
+    def getName():
         # just an example how to disable nest functions
         return ["nest.Install"]
 
@@ -160,16 +111,151 @@ class DisableNestFunc(Wrapper):
         return False
 
 
-def install_wrappers():
+class NodeCollectionWrapper(Wrapper):
+    def __init__(self, clz, original_module, isMethode=False, disable=False):
+        super().__init__(clz, original_module, isMethode, disable)
+        self.nodeCollection = clz
+        setattr(clz, "__hash__", lambda nc: hash(nc._datum))
+
+    def main_func(self, data=None):
+        return NodeCollectionHelper().createNodeCollectionProxy(data)
+
+    def after(self, nodeCollectionProxy):
+        return nodeCollectionProxy
+
+    @ staticmethod
+    def getName():
+        return "nest.NodeCollection"
+
+
+class CopyModelWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, True, disable)
+
+    def main_func(self, existing, new, params=None):
+        CopyModel(old=existing, new=new, newDefault=params).copyModel()
+
+    @ staticmethod
+    def getName():
+        return "nest.CopyModel"
+
+
+class GetStatusWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, nodes, keys=None, output=""):
+        res = []
+        for node in nodes:
+            if node.jitNodeCollection:
+                if keys is None:
+                    res.append(node.jitNodeCollection.get())
+                else:
+                    res.append(node.jitNodeCollection.get(keys))
+
+            if node.nestNodeCollection:
+                res.extend(ModelManager.Nest.GetStatus(node.nestNodeCollection, keys))
+        return res
+
+    @ staticmethod
+    def getName():
+        return "nest.GetStatus"
+
+
+class SetStatusWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, nodes, params, val=None):
+        if isinstance(params, str):
+            nodes.set({params: val})
+        else:
+            nodes.set(params)
+
+    @ staticmethod
+    def getName():
+        return "nest.SetStatus"
+
+
+class SetDefaultsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, model, params, val=None):
+        setFunc = None
+        if model in ModelManager.JitModels:
+            setFunc = ModelManager.JitModels[model].setDefaults
+        else:
+            setFunc = ModelManager.Nest.SetDefaults
+        if isinstance(params, str):
+            setFunc({params: val})
+        else:
+            setFunc(params)
+
+    @ staticmethod
+    def getName():
+        return "nest.SetDefaults"
+
+
+class GetDefaultsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, modelName, keys=None, output=""):
+        if modelName in ModelManager.JitModels:
+            defautls = ModelManager.JitModels[modelName].default
+            if keys is None:
+                return defautls
+            else:
+                res = {}
+                for k, v in defautls.items():
+                    if k in keys:
+                        res[k] = v
+                return res
+        elif modelName in ModelManager.Nest.Models():
+            return ModelManager.Nest.GetDefaults(modelName, keys, output)
+
+    @ staticmethod
+    def getName():
+        return "nest.GetDefaults"
+
+
+class ModelsWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, False, disable)
+
+    def main_func(self, mtype='all', sel=None):
+       return models(mtype, sel)
+
+    @ staticmethod
+    def getName():
+        return "nest.Models"
+
+
+class PrintNodesWrapper(Wrapper):
+    def __init__(self, func, original_module, isMethode=False, disable=False):
+        super().__init__(func, original_module, True, disable)
+
+    def main_func(self, mtype='all', sel=None):
+        return printNodes()
+       
+
+    @ staticmethod
+    def getName():
+        return "nest.PrintNodes"
+
+
+
+def installWrappers():
     sub_classes = Wrapper.__subclasses__()
     to_wrap = {}
     for sub_clz in sub_classes:
         if sub_clz.wrapps_one():
-            to_wrap[sub_clz.get_name()] = sub_clz
+            to_wrap[sub_clz.getName()] = sub_clz
         else:
-            for name in sub_clz.get_name():
+            for name in sub_clz.getName():
                 to_wrap[name] = sub_clz
     return to_wrap
 
 
-to_wrap = install_wrappers()
+to_wrap = installWrappers()
