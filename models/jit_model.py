@@ -140,6 +140,8 @@ class JitModel:
                 value = getattr(self.modelchecker, funcName)()
                 if value.__class__.__name__ == "string":
                     value = str(value)
+                if "vector" in value.__class__.__name__:
+                    value = [v for v in value]
                 defaults[var] = value
             return defaults
         return {}

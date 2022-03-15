@@ -12,7 +12,6 @@ class JitModelParser:
     modelTemplate = os.path.join(os.path.dirname(__file__), 'templates')
 
     def __init__(self, node, codeGenerator):
-        print(__file__)
         self.name = node.get_name()
         self.stateBlocks = node.get_state_blocks()
         self.paramBlocks = node.get_parameter_blocks()

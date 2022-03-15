@@ -111,6 +111,11 @@ class ModelHandle():
         self.synapses = synapses
 
     def setupFrontEnd(self, options):
+
+        # pre-condition of install_nest function
+        if not os.path.exists(self.build_path):
+            os.makedirs(self.build_path)
+            
         frontend_configuration_setup(input_path=self.path, target_path=self.target,  install_path=self.build_path,
                                      module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
         self.options = options
