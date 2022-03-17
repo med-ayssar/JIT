@@ -16,11 +16,11 @@ class JitModelParser:
         self.stateBlocks = node.get_state_blocks()
         self.paramBlocks = node.get_parameter_blocks()
         self.type = "neuron" if node.__class__.__name__ == "ASTNeuron" else "synapse"
-        hasParam = len(self.paramBlocks.declarations) > 0
-        hasState = len(self.stateBlocks.declarations) > 0
+        self.hasParam = len(self.paramBlocks.declarations) > 0 if self.paramBlocks else False
+        self.hasState = len(self.stateBlocks.declarations) > 0 if self.stateBlocks else False
         self.printer = NestCppPrinter(node, codeGenerator)
         self.symbolsConverter = SymbolConverter()
-        self.data = {"name": self.name, "hasParam": hasParam, "hasState": hasState}
+        self.data = {"name": self.name, "hasParam": self.hasParam, "hasState": self.hasState}
         self.setCallables()
         self.setStructs()
         self.setConstructorBody()
@@ -43,13 +43,15 @@ class JitModelParser:
         self.data["callables"] = callables
 
     def setStructs(self):
-        stateStruct = self.printer.print_state_struct()
-        stateStruct = re.sub("State_\(\);", "State_(){};", stateStruct)
-        self.data["state"] = stateStruct
+        if self.hasState:
+            stateStruct = self.printer.print_state_struct()
+            stateStruct = re.sub("State_\(\);", "State_(){};", stateStruct)
+            self.data["state"] = stateStruct
 
-        paramStruct = self.printer.print_parameters_struct()
-        paramStruct = re.sub("Parameters_\(\);", "Parameters_(){};", paramStruct)
-        self.data["parameters"] = paramStruct
+        if self.hasParam:
+            paramStruct = self.printer.print_parameters_struct()
+            paramStruct = re.sub("Parameters_\(\);", "Parameters_(){};", paramStruct)
+            self.data["parameters"] = paramStruct
 
     def setConstructorBody(self):
         decs = self.printer.print_default_constructorBody()
@@ -63,13 +65,18 @@ class JitModelParser:
         self.data["body"] = newCode
 
     def setPrivateFields(self):
-        stateInstance = self.printer.print_struct_instance("State") if self.data["hasState"] else None
-        paramInstance = self.printer.print_struct_instance("Parameters") if self.data["hasParam"] else None
-        self.data["stateInstance"] = stateInstance
-        self.data["paramInstance"] = paramInstance
+        if self.hasState:
+            stateInstance = self.printer.print_struct_instance("State")
+            self.data["stateInstance"] = stateInstance
+
+        if self.hasParam:
+            paramInstance = self.printer.print_struct_instance("Parameters")
+            self.data["paramInstance"] = paramInstance
 
     def toCPP(self, toFile=True, outputPath=None):
         cppCode = self.getCppCode()
+        import os
+        path = os.path.join(os.getcwd(), "toDelete", "code.cpp")
         if toFile:
             if outputPath is None:
                 import os

@@ -41,7 +41,7 @@ class ConnectHelper:
 
         for model in modules:
             module = f"{model}module"
-            addLibToPath = ModelManager.Modules.get(model, None)
+            addLibToPath = ModelManager.Modules.pop(model, None)
             if addLibToPath:
                 try:
 
@@ -54,6 +54,7 @@ class ConnectHelper:
                         "Failure Message": str(exp)
                     }
                     self.error_occured = True
+        
         ModelManager.setDefaults(modules)
         ModelManager.copyModels(modules)
         for copyModel, oldName, newName, newParams in CopyModel.Pending:

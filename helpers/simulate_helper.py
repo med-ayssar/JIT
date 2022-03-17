@@ -47,7 +47,7 @@ class SimulateHelper:
                     "Failure Message": str(exp)
                 }
                 self.error_occured = True
-
+        ModelManager.Modules.clear()
         models = list(ModelManager.JitModels.keys())
         ModelManager.setDefaults(models)
 
