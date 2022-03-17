@@ -20,7 +20,7 @@ class NestBiexponentialSynapseTest(unittest.TestCase):
         nest.ResetKernel()
 
         # network construction
-        print("inside...........")
+        
         neuron = nest.Create("biexp_postsynaptic_response")
 
         sg = nest.Create("spike_generator", params={"spike_times": [10., 30.]})
