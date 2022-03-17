@@ -18,7 +18,7 @@ class SimulateHelper:
             if thread.names[0] in ModelManager.ThreadsState:
                 state = ModelManager.ThreadsState[thread.names[0]]
                 if state["hasError"]:
-                    values = [thread.modelName]
+                    values = [thread.names[0]]
                     values.extend(state.values())
                     self.report.append(values)
                     self.reportErrors[thread.names[0]] = {

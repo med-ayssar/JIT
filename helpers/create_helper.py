@@ -62,7 +62,7 @@ class CreateHelper:
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # set Ids range
         first, last = ModelManager.updateIndex(modelName, n)
-        self.nodeCollectionProxy.virtualIds.append(range(first, last + 1))
+        self.nodeCollectionProxy.virtualIds.append(range(first, last))
 
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 

@@ -87,7 +87,7 @@ class JitModel:
             raise Exception(
                 f"The create parameters in {self.__class__.__name__ }.nest is NoneType")
 
-    def get(self, ids, items):
+    def get(self, ids, items, onlyChanged=False):
         res = {}
         keys = self.default.keys()
         # select only valid items
@@ -101,10 +101,14 @@ class JitModel:
                         value = attribute.getValueOfId(i)
                         valuesOfK.append(value)
                     else:
-                        valuesOfK.append(self.default[k])
+                        if not onlyChanged:
+                            valuesOfK.append(self.default[k])
                 else:
-                    valuesOfK.append(self.default[k])
-            if len(valuesOfK) == 1:
+                    if not onlyChanged:
+                        valuesOfK.append(self.default[k])
+            if len(valuesOfK) == 0:
+                pass
+            elif len(valuesOfK) == 1:
                 res[k] = valuesOfK[0]
             else:
                 res[k] = valuesOfK
@@ -113,7 +117,7 @@ class JitModel:
     def set(self, ids, collection):
         for k, v in collection.items():
             if isinstance(v, (tuple, list)):
-                if len(v) != len(ids):
+                if len(v) != len(ids) and len(v) > 0 and isinstance(v[0], (list, tuple)):
                     raise TypeError(f"Expecting {len(ids)} values in {k}, but got {len(v)}")
                 if k in self.attributes:
                     self.attributes[k].update(ids, v)
@@ -161,9 +165,13 @@ class JitNode:
         self.name = name
         self.first = first
         self.last = last
+        self.isDefault = True
 
     def __len__(self):
         return self.last - self.first
+
+    def hasChanged(self):
+        return not self.isDefault
 
     def toString(self):
         return f"model={self.name}, size={self.last - self.first}, first={self.first}"
@@ -261,10 +269,10 @@ class JitNode:
             res.append((first, last + 1))
         return res
 
-    def get(self, keys):
+    def get(self, keys, onlyChanged=False):
         modelsToSelect = range(self.first, self.last)
         jitModel = ModelManager.JitModels[self.name]
-        dictOfItems = jitModel.get(ids=modelsToSelect, items=keys)
+        dictOfItems = jitModel.get(ids=modelsToSelect, items=keys, onlyChanged=onlyChanged)
         return dictOfItems
 
     def getPosition(self):
@@ -276,6 +284,7 @@ class JitNode:
             ids = range(self.first, self.last)
         jitModel = ModelManager.JitModels[self.name]
         jitModel.set(ids=ids, collection=collection)
+        self.isDefault = False
 
     def getKeys(self):
         jitModel = ModelManager.JitModels[self.name]
@@ -319,6 +328,7 @@ class JitNodeCollection(JitInterface):
 
         self.isNotInitial = isNotInitial
         self.spatial = None
+        self.changed = False
 
     def __len__(self):
         if self.nodes:
@@ -383,7 +393,7 @@ class JitNodeCollection(JitInterface):
         if not self.isNotInitial:
             jitNode = self.nodes[0]
             keys = self.getKeys()
-            params = params = jitNode.get(keys=keys)
+            params = jitNode.get(keys=keys, onlyChanged=True)
             nodeCollection = jitNode.createNodeCollection({"params": params})
             ids = nodeCollection.tolist()
             idsInterval = [ids[0], ids[-1]]
@@ -394,6 +404,9 @@ class JitNodeCollection(JitInterface):
 
     def setCreateParams(self, *args, **kwargs):
         pass
+
+    def hasChanged(self):
+        return self.hasChanged
 
     def getChildren(self):
         return self.nodes
@@ -422,9 +435,11 @@ class JitNodeCollection(JitInterface):
 
 class JitAtribute:
     def __init__(self, attributeName, ids, values):
+        self.values = []
         self.attributeName = attributeName
-        if len(ids) != len(values):
+        if len(ids) != len(values) and len(ids) != 1:
             raise ValueError(f"ids:{len(ids)} != values: {len(values)}: both ids and values must be of the same size")
+
         if isinstance(ids, range):
             self.modelIds = list(ids)
         elif isinstance(ids, (list, set)):
@@ -432,7 +447,10 @@ class JitAtribute:
         else:
             raise TypeError(
                 f"{self.__class__.__name__} accepts only range or list types for ids, but ids have type of{ids.__class__.__name__}")
-        self.values = values
+        if (len(ids)) < len(values) and len(ids) == 1:
+            self.values.append(values)
+        else:
+            self.values.extend(values)
 
     def __contains__(self, other):
         if isinstance(other, str):

@@ -40,17 +40,22 @@ class JitInterface():
 
     def __iter__(self):
         return JitIterator(self)
+    def hasChanged(self):
+        return False
 
     def projectDict(self, dic):
         listOfDict = [dict() for i in range(self.getNumberOfChildren())]
         for k, v in dic.items():
             if isinstance(v, (list, tuple)):
-                current = 0
-                currentLength = 0
-                for index, node in enumerate(self.getChildren()):
-                    currentLength += len(node)
-                    listOfDict[index][k] = v[current: currentLength]
-                    current += len(node)
+                if self.getNumberOfChildren() == 1:
+                    listOfDict[0][k] = v
+                else:
+                    current = 0
+                    currentLength = 0
+                    for index, node in enumerate(self.getChildren()):
+                        currentLength += len(node)
+                        listOfDict[index][k] = v[current: currentLength]
+                        current += len(node)
             else:
                 for i in range(self.getNumberOfChildren()):
                     listOfDict[i][k] = v
@@ -68,18 +73,21 @@ class JitInterface():
         for item in args:
             subRes = []
             for subDict in tuples:
+                instancesNum = subDict[1]
                 if item in subDict[0]:
                     value = subDict[0][item]
-                    if isinstance(value, (tuple, list)):
+                    if isinstance(value, (tuple, list)) and instancesNum > 1:
                         subRes.extend(value)
+                    elif isinstance(value, (tuple, list)) and instancesNum == 1:
+                        subRes.append(value)
                     else:
-                        values = [value] * subDict[1]
+                        values = [value] * instancesNum
                         subRes.extend(values)
-                    
+
                 else:
-                    notFound = [None] * subDict[1]
+                    notFound = [None] * instancesNum
                     subRes.extend(notFound)
-            if len(subRes) > 1 :
+            if len(subRes) > 1:
                 toMerge[item] = subRes
             else:
                 toMerge[item] = subRes[0]
@@ -94,7 +102,7 @@ class JitInterface():
             toMerge["models"] = models
         if len(toMerge.keys()) == 1:
             values = toMerge[list(toMerge.keys())[0]]
-            #if len(values) == 1:
+            # if len(values) == 1:
             #    return values[0]
         if len(args) == 1:
             return toMerge[args[0]]
