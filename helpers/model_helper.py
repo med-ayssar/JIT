@@ -94,6 +94,7 @@ class CopyModel:
         mtype = "synapse" if "num_connections" in defaults else "neuron"
         jitModel = JitModel(name=self.oldModelName, mtype=mtype)
         jitModel.default = defaults
+        jitModel.setSourceAsExternal
         ModelManager.JitModels[self.oldModelName] = jitModel
         self.handleJitModel()
         # rest like handleBuitIn

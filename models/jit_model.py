@@ -20,7 +20,19 @@ class JitModel:
         self.type = mtype
         self.astModel = astModel
         self.stateKeys = ["synapse_model"] if mtype == "synapse" else []
-        self.isExternal = True
+        self.source = "nestml"
+
+    def isFromNestml(self):
+        return self.source == "nestml"
+
+    def isFromExternalLib(self):
+        return self.source == "external"
+
+    def __setSource(self, source):
+        self.source = source
+
+    def setSourceAsExternal(self):
+        self.__setSource("external")
 
     def setStates(self, keys):
         if isinstance(keys, list):
@@ -29,6 +41,9 @@ class JitModel:
             self.stateKeys.append(keys)
         else:
             raise TypeError("keys must either list or str")
+
+    def addDefaultsValues(self, default):
+        self.default = default
 
     def isFromNestml(self):
         return self.modelchecker != None

@@ -1,7 +1,7 @@
 from jit.utils.nest_config import NestConfig
-from multiprocessing import Manager, Queue
+from multiprocessing import Manager
 import sys
-
+import os
 from jit.models.model_indexer import ModelIndexer
 
 
@@ -22,9 +22,16 @@ class ModelManager():
     def resetManager():
         ModelManager.ExternalModels = []
         ModelManager.ModelIndexer = {}
+        ModelManager.ParsedModels = {}
         ModelManager.NodeCollectionProxy = []
         ModelManager.Index = 0
-
+        libs = ModelManager.JitModels.keys()
+        libs = [f"{lib}module.so" for lib in libs]
+        workingDir = os.path.join(os.getcwd(), "build")
+        for lib in libs:
+            path = os.path.join(workingDir, lib)
+            if os.path.exists(path):
+                os.remove(path)
         ModelManager.JitModels = {}
 
     @staticmethod
@@ -105,7 +112,7 @@ class ModelManager():
         roots = set()
         for model in models:
             jitModel = ModelManager.JitModels.get(model, None)
-            if jitModel and jitModel.isExternal:
+            if jitModel:
                 if jitModel.root:
                     roots.add(jitModel.root)
                 else:

@@ -55,8 +55,7 @@ class SimulateHelper:
         for ncp in ModelManager.NodeCollectionProxy:
             if ncp.jitNodeCollection:
                 ncp.toNodeCollection()
-        # clear Array of NodeCollectionProxy<JitNodeCollection>
-        #ModelManager.NodeCollectionProxy = []
+      
 
     def broadcastChanges(self):
         for ncp in gc.get_objects():

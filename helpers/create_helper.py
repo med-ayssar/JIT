@@ -50,6 +50,7 @@ class CreateHelper:
         ModelManager.JitModels[modelName] = jitModel
         n, dic = self.getParams(modelName, n, params, positions)
         jitModel.setCreateParams(**dic)
+        jitModel.setSourceAsExternal
 
         self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # add module to path
@@ -58,6 +59,8 @@ class CreateHelper:
         ModelManager.Nest.Install(self.modelHandle.moduleName)
         # create the instances of the module
         nodeCollection = ModelManager.Nest.Create(modelName, n, params, positions)
+        neuronDefaults = ModelManager.Nest.GetDefaults(modelName)
+        jitModel.addDefaultsValues(neuronDefaults)
         # store the nodeCollection in the nodeCollectionProxy
         self.nodeCollectionProxy.nestNodeCollection = nodeCollection
         # set Ids range
@@ -94,6 +97,7 @@ class CreateHelper:
         jitModel = ModelManager.JitModels[modelName]
         n, dic = self.getParams(modelName, n, params, positions)
         jitModel.setCreateParams(**dic)
+        self.nodeCollectionProxy.setCreationParams(n, params, positions)
         first, last = ModelManager.updateIndex(modelName, n)
         initialJitNode = JitNode(name=modelName, first=first, last=last)
         jitNodeCollection = JitNodeCollection(initialJitNode, isNotInitial=False)
