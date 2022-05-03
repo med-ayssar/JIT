@@ -39,7 +39,9 @@ def cleanDictionary(dic, toKeep):
                    "model",
                    "element_type",
                    "local",
-                   "Ca"]
+                   "Ca",
+                   "model_id",
+                   "is_vectorized"]
 
     dicKeys = dic.keys()
     for key in list(dicKeys):
@@ -309,7 +311,6 @@ def handleBuiltinBuiltin(postNeuron, synapseName):
     updateNodeCollection(newNodeCollection, postNeuronValues, synapseValues)
 
     return newNodeCollection, newSynapseName
-
 
 
 def handle(postNeuron, synapseName):

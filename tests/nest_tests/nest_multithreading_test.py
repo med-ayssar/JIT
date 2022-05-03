@@ -1,3 +1,24 @@
+# -*- coding: utf-8 -*-
+#
+# nest_multithreading_test.py
+#
+# This file is part of NEST.
+#
+# Copyright (C) 2004 The NEST Initiative
+#
+# NEST is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# NEST is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with NEST.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import unittest
 import numpy as np
@@ -58,6 +79,7 @@ class NestMultithreadingTest(unittest.TestCase):
                               params={"spike_times": post_spike_times,
                                       'allow_offgrid_times': True})
 
+       
         pre_neuron = nest.Create(self.neuron_model, 2)
         post_neuron = nest.Create(self.neuron_model, 2)
         sr_pre = nest.Create("spike_recorder")
@@ -65,6 +87,7 @@ class NestMultithreadingTest(unittest.TestCase):
         mm = nest.Create("multimeter", params={"record_from": ["V_m"]})
 
         nest.Connect(pre_sg, pre_neuron, "one_to_one", syn_spec={"delay": 1.})
+        
         nest.Connect(pre_neuron, post_neuron, "all_to_all", syn_spec={'synapse_model': 'stdp_nestml_rec'})
         nest.Connect(post_sg, post_neuron, "one_to_one", syn_spec={"delay": 1., "weight": 9999.})
         nest.Connect(mm, post_neuron)
