@@ -19,9 +19,9 @@ class CreateWrapper(Wrapper):
         self.createHelper = None
         self.nodeCollectionProxy = None
 
-    def before(self, modelName, n=1, params=None, positions=None, options=None):
-        self.createHelper = CreateHelper(modelName)
-        self.nodeCollectionProxy = self.createHelper.Create(modelName, n, params, positions, options)
+    def before(self, modelName, n=1, params=None, positions=None):
+        self.createHelper = CreateHelper()
+        self.nodeCollectionProxy = self.createHelper.Create(modelName, n, params, positions)
         return (), {}
 
     def after(self, *args):
@@ -45,7 +45,10 @@ class ConnectWrapper(Wrapper):
         self.connectionHelper.reset()
         models = set()
         postNodes = None
-        synapseName = syn_spec.get("synapse_model", "static_synapse") if syn_spec else "static_synapse"
+        if type(syn_spec) == str:
+            synapseName = syn_spec
+        else:
+            synapseName = syn_spec.get("synapse_model", "static_synapse") if syn_spec else "static_synapse"
         if synapseName and synapseName in ModelManager.ExternalModels:
             postNodes, synapseName = self.connectionHelper.convertPostNeuron(post, synapseName)
             if synapseName:
@@ -75,7 +78,7 @@ class ConnectWrapper(Wrapper):
             self.connectionHelper.convertToNodeCollection(post)
 
         # print report summary
-        self.connectionHelper.showReport()
+        #self.connectionHelper.showReport()
         # check if we must abort before running the simulate
         if self.connectionHelper.mustAbort():
             sys.exit()
@@ -101,9 +104,9 @@ class SimulateWrapper(Wrapper):
         # convert all JitNodeCollections to NodeCollections
         self.simulateHelper.convertToNodeCollection()
         # broadcast converted JitNodeCollections to their subsets
-        self.simulateHelper.broadcastChanges()
+        #self.simulateHelper.broadcastChanges()
         # print report summary
-        self.simulateHelper.showReport()
+        #self.simulateHelper.showReport()
         # check if we must abort before running the simulate
         if self.simulateHelper.mustAbort():
             sys.exit()

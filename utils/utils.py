@@ -1,5 +1,10 @@
 from jit.models.model_manager import ModelManager
 from jit.models.model_query import ModelQuery
+import inspect
+
+
+def whichFunc():
+    return inspect.stack()[1][3]
 
 
 def setSynapsesKeys(synapses, keys):

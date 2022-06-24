@@ -1,3 +1,4 @@
+from attr import has
 from nbformat import current_nbformat_minor
 from jit.models.model_manager import ModelManager
 from jit.models.jit_model import JitModel, JitNode
@@ -38,7 +39,7 @@ class CopyModel:
         neuron, synapse = self.__getNeuronSynapsePair()
         if synapse is None:
             ModelManager.Nest.CopyModel(
-                self.modelHandle.neuron, self.newModelName, self.newDefault)
+                self.oldModelName, self.newModelName, self.newDefault)
         else:
             neuronName = f"{neuron}__with_{synapse}"
             keys = set(ModelManager.Nest.GetDefaults(neuronName).keys())
@@ -59,15 +60,18 @@ class CopyModel:
             ModelManager.Nest.SetDefaults(neuronName, neuronDict)
 
     def __getNeuronSynapsePair(self):
-        currentModuleName = self.modelHandle.moduleName
-        currentModuleName = currentModuleName.replace("module", "")
-        if currentModuleName.find("__with_") > -1:
-            neuronSynapse = currentModuleName.split("__with_")
-            assert len(neuronSynapse) == 2, "The library file name doesn't contain the expected neuron_synapse name!"
-            return neuronSynapse
+        if hasattr(self, "modelHandle"):
+            currentModuleName = self.modelHandle.moduleName
+            currentModuleName = currentModuleName.replace("module", "")
+            if currentModuleName.find("__with_") > -1:
+                neuronSynapse = currentModuleName.split("__with_")
+                assert len(neuronSynapse) == 2, "The library file name doesn't contain the expected neuron_synapse name!"
+                return neuronSynapse
 
+            else:
+                return currentModuleName, None
         else:
-            return currentModuleName, None
+            return self.oldModelName, None
 
     def handleJitModel(self):
         oldModel = ModelManager.JitModels[self.oldModelName]

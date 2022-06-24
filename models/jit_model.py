@@ -90,10 +90,12 @@ class JitModel:
             if bool(self.createParams):
                 args = self.createParams["args"]
                 kwargs = self.createParams["kwargs"]
-                kwargs.update(params)
-                params = kwargs.pop('params', None)
-                nodeCollection = ModelManager.Nest.Create(*args, **kwargs)
-                nodeCollection.set(params)
+                first_key = list(params.keys())[0]
+                n = len(params[first_key])
+                model = kwargs.get("model", "UnknownModel")
+                params = {"params" :params}
+                nodeCollection = ModelManager.Nest.Create(model, n, **params)
+                #nodeCollection.set(params)
                 return nodeCollection
             else:
                 raise Exception(
@@ -409,7 +411,7 @@ class JitNodeCollection(JitInterface):
             jitNode = self.nodes[0]
             keys = self.getKeys()
             params = jitNode.get(keys=keys, onlyChanged=True)
-            nodeCollection = jitNode.createNodeCollection({"params": params})
+            nodeCollection = jitNode.createNodeCollection(params)
             ids = nodeCollection.tolist()
             idsInterval = [ids[0], ids[-1]]
             jitNode.addNestIds(idsInterval)

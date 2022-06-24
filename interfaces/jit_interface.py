@@ -1,4 +1,4 @@
-from jit.utils.help import whichFunc
+from jit.utils.utils import whichFunc
 import nest
 # class JitMeta(type):
 #     def __instancecheck__(cls, instance):
@@ -40,6 +40,7 @@ class JitInterface():
 
     def __iter__(self):
         return JitIterator(self)
+        
     def hasChanged(self):
         return False
 

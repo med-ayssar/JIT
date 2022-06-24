@@ -1,4 +1,3 @@
-from sys import modules
 from jit.models.model_query import ModelQuery
 from jit.models.node_collection_proxy import NodeCollectionProxy
 from jit.models.model_manager import ModelManager
@@ -7,11 +6,11 @@ from jit.utils.thread_manager import JitThread
 
 
 class CreateHelper:
-    def __init__(self, modelName):
+    def __init__(self):
         # prepare the NodeCollectionProxy instance
         self.nodeCollectionProxy = NodeCollectionProxy()
 
-    def Create(self, modelName, n=1, params=None, positions=None, options=None):
+    def Create(self, modelName, n=1, params=None, positions=None):
         if modelName in ModelManager.JitModels:
             self.handleJitModel(modelName, n, params, positions)
         # if the model is already installed
@@ -50,7 +49,7 @@ class CreateHelper:
         ModelManager.JitModels[modelName] = jitModel
         n, dic = self.getParams(modelName, n, params, positions)
         jitModel.setCreateParams(**dic)
-        jitModel.setSourceAsExternal
+        jitModel.setSourceAsExternal() 
 
         self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # add module to path
