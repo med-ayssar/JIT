@@ -13,6 +13,7 @@ from jit.models.node_collection_proxy import NodeCollectionProxy
 
 
 class CreateWrapper(Wrapper):
+    """Wrapper for the NEST Create function."""
 
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, isMethode, disable)
@@ -36,6 +37,8 @@ class CreateWrapper(Wrapper):
 
 
 class ConnectWrapper(Wrapper):
+    """Wrapper for the NEST Connect function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, isMethode, disable)
         self.connectionHelper = ConnectHelper()
@@ -78,7 +81,7 @@ class ConnectWrapper(Wrapper):
             self.connectionHelper.convertToNodeCollection(post)
 
         # print report summary
-        #self.connectionHelper.showReport()
+        # self.connectionHelper.showReport()
         # check if we must abort before running the simulate
         if self.connectionHelper.mustAbort():
             sys.exit()
@@ -90,6 +93,8 @@ class ConnectWrapper(Wrapper):
 
 
 class SimulateWrapper(Wrapper):
+    """Wrapper for the NEST Simulate function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, isMethode, disable)
         self.simulateHelper = SimulateHelper()
@@ -104,9 +109,9 @@ class SimulateWrapper(Wrapper):
         # convert all JitNodeCollections to NodeCollections
         self.simulateHelper.convertToNodeCollection()
         # broadcast converted JitNodeCollections to their subsets
-        #self.simulateHelper.broadcastChanges()
+        # self.simulateHelper.broadcastChanges()
         # print report summary
-        #self.simulateHelper.showReport()
+        # self.simulateHelper.showReport()
         # check if we must abort before running the simulate
         if self.simulateHelper.mustAbort():
             sys.exit()
@@ -122,6 +127,8 @@ class SimulateWrapper(Wrapper):
 
 
 class DisableNestFunc(Wrapper):
+    """Wrapper for disabling any NEST function."""
+
     def __init__(self, *args, **kwargs):
         args = args + (True,)
         super().__init__(*args, **kwargs)
@@ -137,6 +144,8 @@ class DisableNestFunc(Wrapper):
 
 
 class NodeCollectionWrapper(Wrapper):
+    """Wrapper for the NEST NodeCollection class."""
+
     def __init__(self, clz, original_module, isMethode=False, disable=False):
         super().__init__(clz, original_module, isMethode, disable)
         self.nodeCollection = clz
@@ -155,6 +164,8 @@ class NodeCollectionWrapper(Wrapper):
 
 
 class CopyModelWrapper(Wrapper):
+    """Wrapper for the NEST CopyModel function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, True, disable)
 
@@ -167,6 +178,8 @@ class CopyModelWrapper(Wrapper):
 
 
 class GetStatusWrapper(Wrapper):
+    """Wrapper for the NEST GetStatus function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
@@ -193,6 +206,8 @@ class GetStatusWrapper(Wrapper):
 
 
 class SetStatusWrapper(Wrapper):
+    """Wrapper for the NEST SetStatus function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
@@ -208,6 +223,8 @@ class SetStatusWrapper(Wrapper):
 
 
 class ResetKernelWrapper(Wrapper):
+    """Wrapper for the NEST ResetKernel function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, True, disable)
 
@@ -221,6 +238,8 @@ class ResetKernelWrapper(Wrapper):
 
 
 class SetDefaultsWrapper(Wrapper):
+    """Wrapper for the NEST SetDefaults function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
@@ -241,6 +260,8 @@ class SetDefaultsWrapper(Wrapper):
 
 
 class GetDefaultsWrapper(Wrapper):
+    """Wrapper for the NEST GetDefaults function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
@@ -264,6 +285,8 @@ class GetDefaultsWrapper(Wrapper):
 
 
 class ModelsWrapper(Wrapper):
+    """Wrapper for the NEST Models function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
@@ -276,6 +299,8 @@ class ModelsWrapper(Wrapper):
 
 
 class PrintNodesWrapper(Wrapper):
+    r"""Wrapper for the NEST PrintNode function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, True, disable)
 
@@ -288,6 +313,8 @@ class PrintNodesWrapper(Wrapper):
 
 
 class GetConnectionsWrapper(Wrapper):
+    """Wrapper for the NEST GetConnections function."""
+
     def __init__(self, func, original_module, isMethode=False, disable=False):
         super().__init__(func, original_module, False, disable)
 
@@ -298,12 +325,14 @@ class GetConnectionsWrapper(Wrapper):
             target = target.nestNodeCollection
         return (source, target, synapse_model, synapse_label), {}
 
-    @ staticmethod
+    @staticmethod
     def getName():
         return "nest.GetConnections"
 
 
 def installWrappers():
+    """Create a dictionary of the implemented wrapper classes"""
+
     sub_classes = Wrapper.__subclasses__()
     to_wrap = {}
     for sub_clz in sub_classes:

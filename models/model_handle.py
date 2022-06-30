@@ -13,7 +13,21 @@ from copy import deepcopy
 
 
 class ModelHandle():
+    """Handles the source of the Model. The class may either trigger the code generation pipeline to register the NESTML models, or simply register the existing library containing the model.
+    """
+
     def __init__(self, name, model_path=None, is_lib=False):
+        """Initialize function.
+
+            Parameters
+            ----------
+            name: str
+                the name of the model to load
+            model_path: str
+                the path where to find the model in the file system
+            is_lib: bool
+                indicate if the path of the model points to a NESTML file or a library.
+        """
         self.neuron = name
         self.moduleName = f"{self.neuron}module"
 
@@ -28,6 +42,8 @@ class ModelHandle():
         self.options = None
 
     def add_module_to_path(self):
+        """ Add the library path to the SLI environment.
+        """
         system = platform.system()
         lib_key = ""
         if system == "Linux":
@@ -41,6 +57,8 @@ class ModelHandle():
             os.environ[lib_key] = self.lib_path
 
     def _generate_code(self):
+        """ Trigger the code generation pipeline for creating the C++ code
+        """
         try:
             hasErrors = generate_code(codeGenerator=self.codeGenerator, neurons=self.neurons, synapses=self.synapses)
             if hasErrors:
@@ -52,6 +70,8 @@ class ModelHandle():
             raise CreateException(state, msg)
 
     def _build(self):
+        """ Trigger the build of the created C++ code. 
+        """
         try:
             # pre-condition of install_nest function
             if not os.path.exists(self.build_path):
@@ -78,6 +98,8 @@ class ModelHandle():
             raise CreateException(state, msg)
 
     def build(self):
+        """ Trigger the complete code generation pipeline.
+        """
         if not self.is_lib:
             self._generate_code()
             self._build()
@@ -85,10 +107,25 @@ class ModelHandle():
             self.add_module_to_path()
 
     def add_params(self, funcName, args):
+        """ Cache the provided parameters for the targeted NEST function
+
+            Parameters
+            ---------
+            funcName: str
+                the name of the targeted NEST function
+            args: Tuple
+                the provided paramters to the NEST function
+        """
         self.params[funcName] = args
 
     def processModels(self, options=None):
+        """Parse the NESTML model
 
+            Parameters
+            ---------
+            options: dict
+                the code generation options
+        """
         self.setupFrontEnd(options)
 
         neuronsAst, synapsesAst, errors_occurred = process_nestml_files()
@@ -111,16 +148,34 @@ class ModelHandle():
         self.synapses = synapses
 
     def setupFrontEnd(self, options):
+        """Prepare the code generation options.
 
+            Parameters
+            ---------
+            options: dict
+                the code generation options
+        """
         # pre-condition of install_nest function
         if not os.path.exists(self.build_path):
             os.makedirs(self.build_path)
-            
+
         frontend_configuration_setup(input_path=self.path, target_path=self.target,  install_path=self.build_path,
                                      module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
         self.options = options
 
     def getModels(self, mtype="neuron"):
+        """Generate the partial version of the NESTML model.
+            Parameters
+            ---------
+            mytpye: str
+                the type of the model. Either neuron or synapse.
+
+            Returns
+            -------
+            Model:
+                the partial version of the NESTML model.
+
+        """
         models = []
         for model in self.neurons + self.synapses:
             modelInstnace = JitModelParser(model, self.codeGenerator)
@@ -129,12 +184,27 @@ class ModelHandle():
 
     @staticmethod
     def getCodeGenerator(options):
+        """Create an instance of the CodeGenerator
+
+            Parameters
+            ---------
+            options: dict
+                the code generation options
+        """
         return code_generator_from_target_name(FrontendConfiguration.get_target_platform(),
                                                options=options)
 
     @staticmethod
     def getCodeGenerationOptions(neuron, synapse):
+        """Prepare the code generation options.
 
+            Parameters
+            ---------
+            neuron: str
+                the neuron name
+            synapse: str
+                the synapse name
+        """
         codegenOpts = {
             "neuron_parent_class": "StructuralPlasticityNode",
             "neuron_parent_class_include": "structural_plasticity_node.h",
