@@ -7,6 +7,7 @@ from jit.models.model_indexer import ModelIndexer
 
 class ModelManager():
     """Manage the inner state of the created Objects during the simulation."""
+
     _Manager = Manager()
     Threads = []
     ThreadsState = _Manager.dict()
@@ -17,6 +18,7 @@ class ModelManager():
     ModelIndexer = {}
     ParsedModels = {}
     Index = 0
+
     Nest = None
 
     @staticmethod
@@ -44,7 +46,7 @@ class ModelManager():
 
     #         Parameters
     #         ----------
-    #         newRange: list[int], range 
+    #         newRange: list[int], range
     #             list of new Ids covered by the model
     #     """
     #     if hasattr(handle, "is_lib") and handle.is_lib:
@@ -125,10 +127,10 @@ class ModelManager():
                 the model's name.
             n: int
                 the passed argument to the ``nest.Create`` function.
-            
+
             JitModel: JitModel
                 the JIT representation of the model.
-    
+
         """
         ModelManager.JitModels[modelName] = jitModel
         pair = [ModelManager.Index, ModelManager.Index + n]
@@ -151,7 +153,7 @@ class ModelManager():
                 the model's name.
             n: int
                 the passed argument to the ``nest.Create`` function.
-    
+
         """
         pair = [ModelManager.Index, ModelManager.Index + n]
         ModelManager.ModelIndexer[modelName].addRange(pair)
@@ -173,7 +175,7 @@ class ModelManager():
                 the model's name.
             n: int
                 the passed argument to the ``nest.Create`` function.
-    
+
         """
         pair = [ModelManager.Index, ModelManager.Index + n]
         ModelManager.Index += n
@@ -222,7 +224,7 @@ class ModelManager():
             -------
             (NodeCollectionProxy, int):
                 the first element represents the NodeCollection instance containing the item in the global position. The second element is the relative position of the item in the retrieved collection.
-                   
+
         """
         blockStartsAt = 0
         blockEndsAt = -1

@@ -4,11 +4,24 @@ The Models Module
 The Internal Infrastructure
 ---------------------------
 
+.. automodule:: jit.interfaces.jit_interface
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :private-members:
+
 .. automodule:: jit.models.jit_model
    :members:
    :undoc-members:
    :show-inheritance:
    :private-members:
+
+.. automodule:: jit.models.node_collection_proxy
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :private-members:
+
 
 Handling The Model's Registration
 ----------------------------------
@@ -45,3 +58,5 @@ Managing The Partial JIT Models
    :undoc-members:
    :show-inheritance:
    :private-members:
+   :exclude-members: Nest, Index
+

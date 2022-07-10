@@ -4,16 +4,44 @@ import inspect
 
 
 def whichFunc():
+    """Return the name of the current executing function.
+
+        Returns
+        -------
+        str:
+            the current function on the execution stack.
+    """
     return inspect.stack()[1][3]
 
 
 def setSynapsesKeys(synapses, keys):
+    """Update the keys registered in the synapse model.
+
+        Parameters
+        ----------
+        synapses: list[ASTSynapse]
+        keys: dict
+            new values for the synapses attributes.
+
+    """
     for ncKey, synapseKey in keys.items():
         for synapse in synapses:
             synapse.setStates(synapseKey)
 
 
 def getCommonItemsKeys(nodeCollectionKeys, synapseName):
+    """Get shared attributes names between neuron and synapse.
+
+        Parameters
+        ----------
+        nodeCollectionKeys: list[str]
+        synapseName: str
+
+        Returns
+        -------
+        list[str]
+            shared attributes between neuron and synapse.
+    """
     keys = {}
     for key in nodeCollectionKeys:
         if synapseName in key:
@@ -24,6 +52,16 @@ def getCommonItemsKeys(nodeCollectionKeys, synapseName):
 
 
 def updateNodeCollectionWithSynapseItems(nc, synapseItems, keys):
+    """ Update the attributes that was moved from synapse to neuron
+
+        Parameters
+        ----------
+        nc: NodeCollection
+        synapseItems: dict
+            keys contains synapse attributes names and values the matched attributes names in the neuron model.
+        keys: list[str]
+            shared keys between neuron and synapse.
+    """
     toSet = {}
     for ncKey, synapseKey in keys.items():
         newValue = synapseItems.get(synapseKey, None)
@@ -34,6 +72,20 @@ def updateNodeCollectionWithSynapseItems(nc, synapseItems, keys):
 
 
 def cleanDictionary(dic, toKeep):
+    """ Removes kernel attributes from the dictionary.
+        Parameters
+        ----------
+        dic: dict
+            dictionary to clean
+        toKeep: list[str]
+            list of attributes to keep
+
+        Returns
+        -------
+        dict:
+            only updatable attributes.
+
+    """
     keyToDelete = ["recordables",
                    "node_uses_wfr",
                    "synaptic_elements",
@@ -56,6 +108,19 @@ def cleanDictionary(dic, toKeep):
 
 
 def handleNestmlNestml(postNeuron, synapseName):
+    """ Handle the connection call involving a postNeuron as `JitNodeCollection` and custom synapse model.
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
+
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     from jit.models.model_handle import ModelHandle
 
     postNeuronValues = postNeuron.get()
@@ -122,12 +187,33 @@ def handleNestmlNestml(postNeuron, synapseName):
 
 
 def retrieveSynapseStates(ncp, synapse):
+    """ Retrieve the synapse state.
+        Parameters
+        ---------
+        ncp: NodeCollectionProxy
+        synapse: JitModel
+
+        Returns
+        -------
+        list[str]:
+            synapse's states.
+
+    """
     k1 = set(ncp.get().keys())
     k2 = set(synapse.keys())
     return k1.intersection(k2)
 
 
 def updateNodeCollection(newNcp, oldNcpDic,  synapseValues):
+    """ Update the state of the neurons in the NodeCollection.
+        Parameters
+        ---------
+        newNcp: NodeCollectionProxy
+        oldNcpDic: dict
+            output of `nest.GetStatus`
+        synapseValues: dict
+
+    """
     newNcpKeys = newNcp.get().keys()
     k1 = set(newNcpKeys)
     k2 = set(oldNcpDic.keys())
@@ -139,10 +225,36 @@ def updateNodeCollection(newNcp, oldNcpDic,  synapseValues):
 
 
 def handleNestmlBuiltin(postNeuron, synapseName):
+    """ Handle the connection call involving a postNeuron as `JitNodeCollection` and a builtin synapse model.
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
+
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     return None, None
 
 
 def handleExternalNestml(postNeuron, synapseName):
+    """ Handle the connection call involving a postNeuron as external model and custom synapse model.
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
+
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     neuronName = getName(postNeuron)
     modelQuery = ModelQuery(neuron_name=neuronName)
     nestmlHandle = modelQuery.find_model_in_nestml()
@@ -212,6 +324,19 @@ def handleExternalNestml(postNeuron, synapseName):
 
 
 def handleBuiltinNestml(postNeuron, synapseName):
+    """ Handle the connection call involving a postNeuron as builtin model and custom synapse model.
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
+
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     postNeuronValues = postNeuron.get()
     neuronName = getName(postNeuron)
 
@@ -246,6 +371,19 @@ def handleBuiltinNestml(postNeuron, synapseName):
 
 
 def handleExternalExternal(postNeuron, synapseName):
+    """ Handle the connection call involving a postNeuron as builtin model and external synapse model.
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
+
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     postNeuronValues = postNeuron.get()
     neuronName = postNeuronValues["models"]
     neuronName = getName(postNeuron)
@@ -285,7 +423,19 @@ def handleExternalExternal(postNeuron, synapseName):
 
 
 def handleBuiltinBuiltin(postNeuron, synapseName):
+    """ Handle the connection call involving a postNeuron as builtin model and builtin synapse model.
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
 
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     postNeuronValues = postNeuron.get()
     neuronName = getName(postNeuron)
     synapse = ModelManager.JitModels[synapseName]
@@ -319,6 +469,19 @@ def handleBuiltinBuiltin(postNeuron, synapseName):
 
 
 def handle(postNeuron, synapseName):
+    """ Handle the call to `nest.Connect`
+        Parameters
+        ----------
+        postNeuron: NodeCollectionProxy
+        synapseName: str
+
+        Returns
+        -------
+        NodeCollection:
+            the converted instance of the `JitNodeCollection`.
+        str:
+            the new synapse's name.
+    """
     synapse = ModelManager.JitModels[synapseName]
     rootSynapse = synapse.root if synapse.root else synapseName
     neuronName = getName(postNeuron)
@@ -344,6 +507,13 @@ def handle(postNeuron, synapseName):
 
 
 def getName(ncp):
+    """ Return the model's names in the NodeCollection object.
+
+        Returns
+        -------
+        list[str]
+            list of names.
+    """
     ncpValues = ncp.get()
     neuronName = ncpValues["models"]
     neuronName = neuronName[0] if isinstance(neuronName, (tuple, list)) else neuronName
@@ -355,11 +525,27 @@ def getName(ncp):
 
 
 def swapConnections(oldPostNeuron, newPostNeuron):
+    """ Swap elements of the network with other neuron models.
+
+        Parameters
+        ----------
+        oldPostNeuron: NodeCollection
+        newPostNeuron: NodeCollection
+
+    """
     swapSource(oldPostNeuron, newPostNeuron)
     swapTarget(oldPostNeuron, newPostNeuron)
 
 
 def swapTarget(oldPostNeuron, newPostNeuron):
+    """ Swap outgoing nodes of the network with other neuron models.
+
+        Parameters
+        ----------
+        oldPostNeuron: NodeCollection
+        newPostNeuron: NodeCollection
+
+    """
     connections = ModelManager.Nest.GetConnections(target=oldPostNeuron).get()
     if len(connections) > 0:
         sources = connections["source"]
@@ -387,6 +573,14 @@ def swapTarget(oldPostNeuron, newPostNeuron):
 
 
 def swapSource(oldPostNeuron, newPostNeuron):
+    """ Swap ingoing nodes of the network with other neuron models.
+
+        Parameters
+        ----------
+        oldPostNeuron: NodeCollection
+        newPostNeuron: NodeCollection
+
+    """
     connections = ModelManager.Nest.GetConnections(source=oldPostNeuron).get()
     if len(connections) > 0:
         sources = connections["source"]

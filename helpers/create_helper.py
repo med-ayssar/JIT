@@ -6,11 +6,34 @@ from jit.utils.thread_manager import JitThread
 
 
 class CreateHelper:
+    """Managing the logic behind the ``ConnectWrapper``"""
+
     def __init__(self):
+        """Initialize function.
+
+        """
         # prepare the NodeCollectionProxy instance
         self.nodeCollectionProxy = NodeCollectionProxy()
 
     def Create(self, modelName, n=1, params=None, positions=None):
+        """ Replaces the ``nest.Create`` function.
+
+            Parameters
+            ----------
+            modelName: str
+                name of the model.
+            n: int
+                number of instances to create.
+            params : dict, list
+                new values of the attributes in the model.
+            positions: dict
+                spatial distribution of the nodes.
+
+            Returns
+            -------
+            NodeCollectionProxy:
+                either a `JitNodeCollection` or a `NodeCollection` hidden in the collection.
+        """
         if modelName in ModelManager.JitModels:
             self.handleJitModel(modelName, n, params, positions)
         # if the model is already installed
@@ -30,7 +53,20 @@ class CreateHelper:
         return self.nodeCollectionProxy
 
     def handleBuiltIn(self, modelName, n=1, params=None, positions=None):
+        """ Handles the case when the model is a builtin model.
 
+            Parameters
+            ----------
+            modelName: str
+                name of the model.
+            n: int
+                number of instances to create.
+            params : dict, list
+                new values of the attributes in the model.
+            positions: dict
+                spatial distribution of the nodes.
+
+        """
         # create the real instance of NodeCollection
         nodeCollection = ModelManager.Nest.Create(modelName, n, params, positions)
         # make the NodeCollection hashable, will be removed later
@@ -45,11 +81,25 @@ class CreateHelper:
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleExternalLib(self, modelName, n=1, params=None, positions=None):
+        """ Handles the case when the model is in an external library.
+
+            Parameters
+            ----------
+            modelName: str
+                name of the model.
+            n: int
+                number of instances to create.
+            params : dict, list
+                new values of the attributes in the model.
+            positions: dict
+                spatial distribution of the nodes.
+
+        """
         jitModel = JitModel(name=modelName)
         ModelManager.JitModels[modelName] = jitModel
         n, dic = self.getParams(modelName, n, params, positions)
         jitModel.setCreateParams(**dic)
-        jitModel.setSourceAsExternal() 
+        jitModel.setSourceAsExternal()
 
         self.nodeCollectionProxy.setCreationParams(n, params, positions)
         # add module to path
@@ -69,7 +119,20 @@ class CreateHelper:
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def handleNestml(self, modelName, n=1, params=None, positions=None):
+        """ Handles the case when the model is in a NESTML format.
 
+            Parameters
+            ----------
+            modelName: str
+                name of the model.
+            n: int
+                number of instances to create.
+            params : dict, list
+                new values of the attributes in the model.
+            positions: dict
+                spatial distribution of the nodes.
+
+        """
         ModelManager.ExternalModels.append(modelName)
         self.modelHandle.processModels(None)
         model = self.modelHandle.getModels()[0]
@@ -79,7 +142,7 @@ class CreateHelper:
         result = givenKeys.difference(expectedKeys)
         if len(result) > 0:
             wrongKeys = ",".join(result)
-            raise KeyError(f"{modelName} doesn't have {wrongKeys} as paramaters or states")
+            raise KeyError(f"{modelName} doesn't have {wrongKeys} as parameters or states")
 
         self.registerModels([model])
 
@@ -93,6 +156,20 @@ class CreateHelper:
         createThread.start()
 
     def handleJitModel(self, modelName, n=1, params=None, positions=None):
+        """ Handles the case when the model is in a NESTML format, but was already requested before.
+
+            Parameters
+            ----------
+            modelName: str
+                name of the model.
+            n: int
+                number of instances to create.
+            params : dict, list
+                new values of the attributes in the model.
+            positions: dict
+                spatial distribution of the nodes.
+
+        """
         jitModel = ModelManager.JitModels[modelName]
         n, dic = self.getParams(modelName, n, params, positions)
         jitModel.setCreateParams(**dic)
@@ -110,6 +187,25 @@ class CreateHelper:
         ModelManager.NodeCollectionProxy.append(self.nodeCollectionProxy)
 
     def getParams(self, model, n, params, positions):
+        """ Retrieve other parameters from the current provided parameters.
+
+            Parameters
+            ----------
+            modelName: str
+                name of the model.
+            n: int
+                number of instances to create.
+            params : dict, list
+                new values of the attributes in the model.
+            positions: dict
+                spatial distribution of the nodes.
+
+            Returns
+            -------
+            dict:
+                modified parameters.
+
+        """
         positionsXorN = n if positions is None else positions
         key = "n" if positions is None else "positions"
         import numpy
@@ -118,6 +214,13 @@ class CreateHelper:
         return size, {"model": model, "params": params, key: positionsXorN}
 
     def registerModels(self, models):
+        """ Register new models from NESTML.
+
+            Parameters
+            ----------
+            models: JitModelParser
+
+        """
         for model in models:
             name = model.name
             modelChecker = model

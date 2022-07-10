@@ -4,18 +4,18 @@ import functools
 class Wrapper:
     """Interface defining the core functionalities to wrap the targeted NEST objects"""
 
-    def __init__(self, func, original_module, isMethode: bool = False, disable: bool = False):
+    def __init__(self, func, original_module, isMethod: bool = False, disable: bool = False):
         """Initialize function.
 
             Parameters
             ----------
             func: target NEST object.
             original_module: NEST module.
-            isMethode: indicate if the targeted NEST is function or method.
+            isMethod: indicate if the targeted NEST is function or method.
             disable: to skip the execution of the targeted NEST function/method.
 
         """
-        self._isMethod = isMethode
+        self._isMethod = isMethod
         self._disabled = disable
         setattr(self, "wrapped_func", self.__wrapper(func))
         self.func = func
@@ -25,8 +25,8 @@ class Wrapper:
 
             Parameters
             ----------
-            args: arguments  tuple as definined in te targeted NEST function.
-            kwargs: Keyword arguments as definined in te targeted NEST function.
+            args: arguments  tuple as defined in te targeted NEST function.
+            kwargs: Keyword arguments as defined in te targeted NEST function.
 
             Returns
             -------

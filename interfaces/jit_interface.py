@@ -2,65 +2,101 @@ from jit.utils.utils import whichFunc
 
 
 class JitInterface():
-    r"""Interface for copying the functionalites in the nest.NodeCollection class"""
+    """Interface for copying the functionalities in the nest.NodeCollection class"""
 
     def getChildren(self):
-        """
-        Return the direct children of the current node
-        :return: A list of JitInterface objects
+        """Return the direct children of the instance.
+
+           Returns
+           -------
+           list[JitNode]:
+                list of children.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
 
     def getNumberOfChildren(self):
-        """
-        Return the number of the direct children of the current node
-        :return: the number of the children in the node
+        """Return the number of direct children of the instance.
+
+           Returns
+           -------
+           int:
+                number of children.
+
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+            f"{self.__class__.__name__} inherits from JitInterface and must implement {whichFunc()}")
 
     def getKeys(self):
-        """
-        Return the name of the attributes of the instances in the node
-        :return: A list of strings
+        """ Return the keys of the instance. It merges all keys from the diffrent children.
+
+            Returns
+            -------
+            list[str]:
+                the attributes name of the model.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+            f"{self.__class__.__name__} inherits from JitInterface and must implement {whichFunc()}")
 
     def getTuples(self, items):
-        """
-        Return a tuple containing three elements. The first element is a dictionay containing the attributes names and their values. The second elements is the number of the children, and the third the model's names.
-        :return: a list of tuples
+        """ Return a list containing a dictionary with the result of of `nest.GetStatus`, the number of direct children of the node and the model name
+            Returns
+            -------
+            list:
+                List with three elements. The first is returned dictionary of `nest.GetStatus`. The second is the number of children of the current node and finally the name of the mode.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+            f"{self.__class__.__name__} inherits from JitInterface and must implement {whichFunc()}")
 
     def getNodeAndRelativePos(self, golbalPos):
-        """
-        Return the relative position of the children node in the current node
-        :return: A pair containing the children node and its relative position
+        """ Retrieve the node and its local Id.
+
+            Parameters
+            ----------
+            globalPos: int
+                global position of the node in the collection.
+
+            Returns
+            -------
+            (JitNode, int):
+                The first element in the pair is the ``JitNode`` instance containing the searched element. The second element is the position of the element in that  ``JitNode``.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+            f"{self.__class__.__name__} inherits from JitInterface and must implement {whichFunc()}")
 
     def setNodes(self, nodes):
-        """
-        Assign children nodes to the current node
+        """ Insert nodes to the collection.
+
+            Parameters
+            ----------
+            nodes: list[JitNode]
+                list of ``JitNode`` instances.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} inherits from JitInterface and must implemenet {whichFunc()}")
+            f"{self.__class__.__name__} inherits from JitInterface and must implement {whichFunc()}")
 
     def __iter__(self):
         return JitIterator(self)
 
     def hasChanged(self):
+        """ Indicate if there is at least one instance of the model in the contiguous has its defaults values changed.
+
+            Returns
+            -------
+            bool:
+                True, if at least one instance has its defaults changed.
+
+        """
         return False
 
     def projectDict(self, dic):
-        """
-        Project and split the dictionary into sub-dictionary for each of the children nodes
-        :return: A list of dictionaries objects
+        """ Project and split the dictionary into sub-dictionaries.
+
+            Returns
+            -------
+            list[dict]:
+                each children retrieve its own part of the dictionary.
+
         """
         listOfDict = [dict() for i in range(self.getNumberOfChildren())]
         for k, v in dic.items():
@@ -80,10 +116,17 @@ class JitInterface():
         return listOfDict
 
     def get(self, *args, **kwargs):
-        """
-        Return a dictionay containing the value of the keys
-        :param args list of keys to retrieve their values
-        :return: a dictionary
+        """ Retrieve the values of the attributes inside the node.
+            Parameters
+            ----------
+            args: str, list
+                name of the attribute.
+
+            Returns
+            -------
+            dict
+                same output as `nest.GetStatus`.
+
         """
         allKeys = self.getKeys()
         hasModels = False
@@ -132,9 +175,13 @@ class JitInterface():
         return toMerge
 
     def set(self, params=None, **kwargs):
-        """
-        Return a dictionay containing the value of the keys
-        :param Dictionary of parameters (either lists or single values) or list of dictionaries of parameters of same length as the NodeCollection.
+        """ Set the values of the attributes inside the node.
+            Parameters
+            ----------
+            params: str, dict, list
+                Dictionary of parameters (either lists or single values) or list of dictionaries of parameters of same length as the NodeCollection.
+            kwargs:
+                Named arguments of parameters of the elements in the NodeCollection.
         """
         if kwargs and params:
             raise TypeError("must either provide params or kwargs, but not both.")
@@ -170,10 +217,17 @@ class JitInterface():
                         partialLength += len(nodes[currentNode])
 
     def nodeAt(self, globalPos):
-        """
-        Return node at the globalPos position
-        :globlPos position of the node in the NodeCollectionProxy
-        :return: Instance of the JitNode
+        """ Retrieve the node and its global provided Id.
+
+            Parameters
+            ----------
+            globalPos: int
+                global position of the node in the collection.
+
+            Returns
+            -------
+            JitNode:
+                the children at the given position.
         """
         blockStartsAt = 0
         blockEndsAt = -1
@@ -186,10 +240,17 @@ class JitInterface():
         raise IndexError("list out of range")
 
     def nodesAt(self, items):
-        """
-        Return all Nodes that have their keys in the items list
-        :item list of attribute's names
-        :return: List of JitInterface objects
+        """ Retrieve nodes at the given global positions.
+
+            Parameters
+            ----------
+            items: list[int]
+                global position of the nodes in the collection.
+
+            Returns
+            -------
+            list[JitNode]:
+                the children at the given positions.
         """
         dictOfModelNames = {}
         # map globalPos to model name
@@ -257,7 +318,14 @@ class JitInterface():
 
 
 class JitIterator:
+    """A shared iterator class between ``JitNode``, ``JitNodeCollection`` and ``JitNodeCollectionProxy``"""
     def __init__(self, node):
+        """Initialize function.
+
+            Parameters
+            ----------
+            node: JitNode, JitNodeCollection, JitNodeCollectionProxy
+        """
         self.node = node
         self._count = 0
 

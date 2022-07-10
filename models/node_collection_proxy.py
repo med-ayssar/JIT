@@ -4,7 +4,16 @@ from jit.interfaces.jit_interface import JitInterface
 
 
 class NodeCollectionProxy(JitInterface):
+    """A proxy implementation for the `NodeCollection` class in NEST """
+
     def __init__(self, jitNodeCollection=None, nestNodeCollection=None, virtualIds=None):
+        """Initialize function.
+
+            Parameters
+            ----------
+            jitNodeCollection: JitNodeCollection.
+            nodeCollection: NodeCollection.
+        """
         self.jitNodeCollection = jitNodeCollection
         self.nestNodeCollection = nestNodeCollection
         if virtualIds is None:
@@ -22,10 +31,31 @@ class NodeCollectionProxy(JitInterface):
         return children
 
     def setCreationParams(self, n, params, positions):
+        """ Cache the parameters passed to the `nest.Create` function.
+
+            Parameters
+            ----------
+            n: int
+                number of instances to create
+            params: list, dict
+                attributes to update in the instances after creation.
+            positions: dict
+                spatial distribution of the nodes.
+        """
         kwargs = {"n": n, "params": params, "positions": positions}
         self.creationArgs.update(kwargs)
 
     def getCreationParams(self):
+        """ Return the cached parameters passed to the `nest.Create` function.
+
+            Return
+            ----------
+            dict:
+                1. number of instances to create
+                2.  attributes to update in the instances after creation.
+                3.  spatial distribution of the nodes.
+        """
+
         return (), self.creationArgs
 
     def getNumberOfChildren(self):
@@ -103,9 +133,23 @@ class NodeCollectionProxy(JitInterface):
             raise KeyError(f"{self.__class__.__name__} doesn't have {name} as attribute")
 
     def getNestIds(self):
+        """ Get the real NEST generated Ids of the instances in the node.
+
+            Return
+            ------
+            list[int]: 
+                NEST real Ids.
+        """
         return self.jitNodeCollection.getNestIds()
 
     def toNodeCollection(self):
+        """ Convert the current collection to a `NodeCollection`.
+
+            Parameters
+            ----------
+            NodeCollection:
+                convert all ``JitNodeCollection`` instances in the proxy to ``NodeCollection``
+        """
         if self.jitNodeCollection:
             nodeCollection = self.jitNodeCollection.createNodeCollection()
             if self.nestNodeCollection is None:
@@ -133,6 +177,13 @@ class NodeCollectionProxy(JitInterface):
         return count
 
     def toString(self):
+        """ A string representation of the NodeCollectionProxy.
+
+            Return
+            ------
+            str:
+                summary of the NodeCollectionProxy.
+        """
         instanceToString = ""
         if self.jitNodeCollection:
             instanceToString += str(self.jitNodeCollection)
@@ -170,6 +221,13 @@ class NodeCollectionProxy(JitInterface):
             raise KeyError(f"NodeCollectionProxy doesn't have {key} as attribute")
 
     def tolist(self):
+        """ Return the Ids of the instances in the collection.
+
+            Return
+            ------
+            list[int]:
+                list of JIT generated Ids.
+        """
         ids = []
         for idsRange in self.virtualIds:
             if isinstance(idsRange, range):
@@ -204,6 +262,13 @@ class NodeCollectionProxy(JitInterface):
         raise IndexError("list out of range")
 
     def hasJitNodeCollection(self):
+        """ Checks if the current collection has a ``JitNodeCollection`` inside
+
+            Returns
+            -------
+            bool:
+                True, if the collection contains a JitNodeCollection.
+        """
         return self.jitNodeCollection is not None
 
     def set(self, params=None, **kwargs):

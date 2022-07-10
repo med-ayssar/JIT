@@ -38,6 +38,7 @@ autodoc_default_options = {
     'member-order': 'bysource',
     'special-members': '__init__',
     'undoc-members': True,
+    'show-inheritance':  True,
     'exclude-members': '__weakref__'
 }
 add_module_names = False

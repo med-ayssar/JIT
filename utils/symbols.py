@@ -39,12 +39,22 @@ symbolTable = [
 
 
 class SymbolConverter:
+    """Retrieve Symbols for expression generating random values and replace them with concrete values."""
+
     def __init__(self):
+        """Initialize function.
+        """
         self.argsHandler = []
         self.declarations = []
         self.constructorArgs = []
 
     def convertSymbols(self, cpp_code):
+        """ Convert random expression to deterministic expression.
+            Parameters
+            ----------
+            cpp_code: str
+                the C++ code of the partial model.   
+        """
         for symbol in symbolTable:
             pattern = symbol["pattern"]
             matches = re.findall(pattern, cpp_code)
@@ -78,6 +88,11 @@ class SymbolConverter:
         return cpp_code, self.declarations, self.constructorArgs
 
     def getArgsHandler(self):
-        return self.argsHandler
+        """ Returns the arguments in the constructor.
 
-    
+            Returns
+            -------
+            list[str]: 
+                the constructors's arguments.
+        """
+        return self.argsHandler
