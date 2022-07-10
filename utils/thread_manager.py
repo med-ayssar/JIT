@@ -4,20 +4,41 @@ from jit.utils.create_report import CreateException
 
 
 class JitThread():
-    def __init__(self, names, funcToRun,):
+    """ Starts the code generation in the background"""
+
+    def __init__(self, names, funcToRun):
+        """Initialize function.
+            Parameters
+            ----------
+            names: list[str]
+                list of neurons names.
+            funcToRun: Object
+                callback function to run.
+        """
         self.process = Process(target=self.run, name="|".join(names), daemon=False, args=(funcToRun,))
         self.names = names
 
     def join(self):
+        """ Explicit wait for the thread."""
         self.process.join()
 
     def terminate(self):
+        """Terminate the running thread."""
         self.process.terminate()
 
     def start(self):
+        """Start the thread in the background."""
         self.process.start()
 
     def run(self, func):
+        """Execute the main function.
+
+            Parameters
+            ----------
+            func: Object
+                main function to call.
+
+        """
         error_occured = False
         try:
             func()

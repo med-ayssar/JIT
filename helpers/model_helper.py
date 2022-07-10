@@ -1,3 +1,4 @@
+from attr import has
 from nbformat import current_nbformat_minor
 from jit.models.model_manager import ModelManager
 from jit.models.jit_model import JitModel, JitNode
@@ -8,14 +9,29 @@ import copy
 
 
 class CopyModel:
+    """Managing the logic behind the ``CopyModel``"""
+
     Pending = []
 
     def __init__(self, old, new, newDefault):
+        """Initialize function.
+
+        Parameters
+        ----------
+        old: str
+            the original model's name.
+        new: str
+            the new name of the model.
+        newDefault: dict
+            new values to be assigned to the new copied model.
+        """
         self.oldModelName = old
         self.newModelName = new
         self.newDefault = newDefault
 
     def copyModel(self):
+        """ Replaces the NEST CopyModel function.
+        """
         if self.oldModelName in ModelManager.JitModels:
             self.handleJitModel()
         elif self.oldModelName in ModelManager.Nest.Models():
@@ -35,10 +51,12 @@ class CopyModel:
                 self.handleNestml()
 
     def handleBuiltIn(self):
+        """ Handles the case if the model is a builtin model.
+        """
         neuron, synapse = self.__getNeuronSynapsePair()
         if synapse is None:
             ModelManager.Nest.CopyModel(
-                self.modelHandle.neuron, self.newModelName, self.newDefault)
+                self.oldModelName, self.newModelName, self.newDefault)
         else:
             neuronName = f"{neuron}__with_{synapse}"
             keys = set(ModelManager.Nest.GetDefaults(neuronName).keys())
@@ -59,17 +77,29 @@ class CopyModel:
             ModelManager.Nest.SetDefaults(neuronName, neuronDict)
 
     def __getNeuronSynapsePair(self):
-        currentModuleName = self.modelHandle.moduleName
-        currentModuleName = currentModuleName.replace("module", "")
-        if currentModuleName.find("__with_") > -1:
-            neuronSynapse = currentModuleName.split("__with_")
-            assert len(neuronSynapse) == 2, "The library file name doesn't contain the expected neuron_synapse name!"
-            return neuronSynapse
+        """ Retrieve the neuron name in the context of a synapse.
+            
+            Returns
+            -------
+            str:
+                the expected neuron name.
+    """
+        if hasattr(self, "modelHandle"):
+            currentModuleName = self.modelHandle.moduleName
+            currentModuleName = currentModuleName.replace("module", "")
+            if currentModuleName.find("__with_") > -1:
+                neuronSynapse = currentModuleName.split("__with_")
+                assert len(neuronSynapse) == 2, "The library file name doesn't contain the expected neuron_synapse name!"
+                return neuronSynapse
 
+            else:
+                return currentModuleName, None
         else:
-            return currentModuleName, None
+            return self.oldModelName, None
 
     def handleJitModel(self):
+        """ Handles the case if the model is a JITModel.
+        """
         oldModel = ModelManager.JitModels[self.oldModelName]
         newModel = JitModel(name=self.newModelName, modelChecker=oldModel.modelchecker,
                             astModel=oldModel.astModel, mtype=oldModel.type)
@@ -81,6 +111,8 @@ class CopyModel:
         ModelManager.JitModels[self.newModelName] = newModel
 
     def handleExternLib(self):
+        """ Handles the case if the model is in an external library.
+        """
         # add module to path
         self.modelHandle.add_module_to_path()
         # install the module
@@ -94,12 +126,15 @@ class CopyModel:
         mtype = "synapse" if "num_connections" in defaults else "neuron"
         jitModel = JitModel(name=self.oldModelName, mtype=mtype)
         jitModel.default = defaults
+        jitModel.setSourceAsExternal
         ModelManager.JitModels[self.oldModelName] = jitModel
         self.handleJitModel()
         # rest like handleBuitIn
         self.handleBuiltIn()
 
     def handleNestml(self):
+        """ Handles the case if the model is in a NESTML file.
+        """
         # extract structural information from the model
 
         self.modelHandle.processModels(None)
@@ -115,6 +150,12 @@ class CopyModel:
             createThread.start()
 
     def registerModels(self, models):
+        """ Register the new copied models.
+
+            Parameters
+            ----------
+            models: JitModel
+        """
         for model in models:
             name = model.name
             modelChecker = model
@@ -125,12 +166,28 @@ class CopyModel:
 
 
 def models(mtype, sel=None):
+    """ Replaces the NEST `Models` function.
+
+            Parameters
+            ----------
+            mtype: str
+                either neuron or synapse.
+            sel: dict
+                selection criteria.
+            
+            Returns
+            -------
+            list[str]
+                list of registered models in JIT and NEST.
+    """
     jitModels = list(ModelManager.JitModels.keys())
     nestModels = ModelManager.Nest.Models(mtype, sel)
     return jitModels + list(nestModels)
 
 
 def printNodes():
+    """ Replaces the NEST `printNodes` function.
+    """
     toPrint = []
     for ncp in ModelManager.NodeCollectionProxy:
         if ncp.jitNodeCollection:
