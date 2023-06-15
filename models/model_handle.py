@@ -4,12 +4,11 @@ from jit.utils.nest_config import NestConfig as config
 import os
 import platform
 from jit.models.model_manager import ModelManager
-from pynestml.frontend.pynestml_frontend import generate_code, frontend_configuration_setup, process_nestml_files, code_generator_from_target_name, builder_from_target_name
+from pynestml.frontend.pynestml_frontend import generate_code, configure_front_end, get_parsed_models, code_generator_from_target_name, builder_from_target_name
 from jit.utils.create_report import CreateException, CreateState
 from pynestml.exceptions.generated_code_build_exception import GeneratedCodeBuildException
 from jit.utils.jit_model_parser import JitModelParser
 from pynestml.frontend.frontend_configuration import FrontendConfiguration
-from copy import deepcopy
 
 
 class ModelHandle():
@@ -128,7 +127,7 @@ class ModelHandle():
         """
         self.setupFrontEnd(options)
 
-        neuronsAst, synapsesAst, errors_occurred = process_nestml_files()
+        neuronsAst, synapsesAst, errors_occurred = get_parsed_models()
         if errors_occurred:
             raise Exception("Error(s) occurred while process_nestml_filesing the model")
         models = neuronsAst + synapsesAst
@@ -159,8 +158,8 @@ class ModelHandle():
         if not os.path.exists(self.build_path):
             os.makedirs(self.build_path)
 
-        frontend_configuration_setup(input_path=self.path, target_path=self.target,  install_path=self.build_path,
-                                     module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
+        configure_front_end(input_path=self.path, target_path=self.target,  install_path=self.build_path,
+                            module_name=self.moduleName, codegen_opts=options, target_platform="NEST")
         self.options = options
 
     def getModels(self, mtype="neuron"):
