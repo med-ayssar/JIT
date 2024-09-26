@@ -2,14 +2,14 @@ from logging import root
 from jit.helpers.connect_helper import ConnectHelper
 from jit.helpers.nodeCollection_helper import NodeCollectionHelper
 from jit.wrapper.wrapper import Wrapper
-import sys
-from loguru import logger
 from jit.helpers.create_helper import CreateHelper
 from jit.helpers.simulate_helper import SimulateHelper
 from jit.helpers.model_helper import CopyModel, models, printNodes
 from jit.models.model_manager import ModelManager
 from jit.utils.utils import swapConnections
 from jit.models.node_collection_proxy import NodeCollectionProxy
+import sys
+from loguru import logger
 
 
 class CreateWrapper(Wrapper):
